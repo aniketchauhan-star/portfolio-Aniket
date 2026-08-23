@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<!--
+  ============================================================================
+  THE STORY NIGHT  —  interactive 3D flipbook (Neel & the dragon)
+  ----------------------------------------------------------------------------
+  • No build step, no frameworks. Just open this file in any modern browser.
+  • A real 3D hardcover book: it has thickness, a spine, sits angled and casts a
+    soft shadow. Tap PLAY to open it (the cover swings on the spine), then flip.
+  • Full-bleed picture-book pages: page 1 is a video, pages 2-4 are scenes with
+    a speech bubble that pops in once you fully land on the page.
+  • Structure is split into THREE files:
+        index.html   → this markup
+        styles.css   → all styling + the night theme + animations
+        script.js    → the flip engine + the page content (EDIT PAGES THERE)
+  ============================================================================
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>The Great Fish Rescue</title>
+
+<!-- ── Google Fonts: Fredoka (headings + speech bubbles) + Patrick Hand & Caveat ── -->
+<link rel="icon" href="data:," /><!-- no favicon shipped — suppress the /favicon.ico request -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  href="https://fonts.googleapis.com/css2?family=Caveat:wght@500&family=Fredoka:wght@500;600;700&family=Patrick+Hand&display=swap"
+  rel="stylesheet"
+/>
+
+<!-- All styling lives in styles.css -->
+<link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+<!-- Landscape lock: on phones/tablets (touch), the book shows only in landscape.
+     In portrait the scene is hidden and this rotate prompt is shown instead. -->
+<div class="rotate-notice" id="rotateNotice">
+  <div class="rotate-inner">
+    <div class="rotate-icon">🔄</div>
+    <div class="rotate-text">Please rotate your device<br />to landscape to read</div>
+  </div>
+</div>
+<div class="scene">
+  <div class="stage">
+    <!-- Fixed 1280×720 book layer. JS scales it (transform) to fit the screen. -->
+    <div class="flip-scale" id="flipScale">
+    <!-- INNER scale wrapper: the open motion runs here, so it composes with the
+         outer responsive scale of .flip-scale. -->
+    <div class="book-stage" id="bookStage">
+    <!-- Outer hardcover outline — visible once the book is open -->
+    <div class="book-frame"></div>
+    <div class="floor-shadow"></div>
+
+    <!-- The page-turning book mounts here (JS injects one .leaf per page).
+         Sits beneath the 3D cover layer; revealed once the cover swings open.
+         .page-stack = the tan fore-edge of the pages still to be turned (right). -->
+    <div id="flipbook">
+      <div class="page-stack" aria-hidden="true"><i></i><i></i><i></i></div>
+    </div>
+
+    <!-- Moving shadow the opening cover casts on the inside page. -->
+    <div class="cover-cast"></div>
+
+    <!-- The 3D hardcover + cover-opening animation (own perspective layer). -->
+    <div class="cover-scene" id="coverScene">
+    <div class="book-float" id="bookFloat">
+      <div class="book-pop" id="bookPop">
+        <div class="book" id="book">
+          <div class="book-inner" id="bookInner">
+
+            <!-- Open-book back cover backing -->
+            <div class="book-body"></div>
+
+            <!-- The 3D page block that gives the closed book its thickness -->
+            <div class="pageblock">
+              <div class="pbf pb-back"></div>
+              <div class="pbf pb-left"></div>
+              <div class="pbf pb-right"></div>
+              <div class="pbf pb-top"></div>
+              <div class="pbf pb-bottom"></div>
+              <div class="pbf pb-front"></div>
+            </div>
+
+            <!-- Front hardcover (last so it stacks in front when closed). -->
+            <div class="cover-holder">
+            <div class="cover" id="cover">
+              <div class="face front">
+                <div class="cover-img"></div>
+                <!-- Clean GOLD cover frame — a soft rounded double rule with a small
+                     gem at each corner. One SVG in book-space (1280×720) so it scales
+                     crisply with the book. Kept simple + uncluttered for kids. -->
+                <svg class="cover-frame" viewBox="0 0 1280 720" aria-hidden="true">
+                  <defs>
+                    <!-- corner jewel — a little gold diamond that echoes the title gems -->
+                    <g id="cfGem">
+                      <path d="M0 -17 L17 0 L0 17 L-17 0 Z" fill="#f6d982" stroke="#b9822a" stroke-width="2.4" stroke-linejoin="round"/>
+                      <path d="M0 -9 L9 0 L0 9 L-9 0 Z" fill="none" stroke="#fff6dc" stroke-width="1.4" opacity="0.75"/>
+                    </g>
+                  </defs>
+                  <!-- rounded double gold rule framing the poster (soft, friendly corners) -->
+                  <rect x="40" y="40" width="1200" height="640" rx="34" fill="none" stroke="#f4d27a" stroke-width="6"/>
+                  <rect x="54" y="54" width="1172" height="612" rx="26" fill="none" stroke="#e7b544" stroke-width="2.2" opacity="0.85"/>
+                  <!-- one gem per corner -->
+                  <use href="#cfGem" transform="translate(80,80)"/>
+                  <use href="#cfGem" transform="translate(1200,80)"/>
+                  <use href="#cfGem" transform="translate(80,640)"/>
+                  <use href="#cfGem" transform="translate(1200,640)"/>
+                </svg>
+                <div class="back-fill"></div>
+                <div class="curl"></div>
+                <!-- Play is HIDDEN until the boot preloader reports 100% —
+                     script.js swaps the loader for the button (with a pop-in)
+                     and openBook() itself refuses to run before that, so
+                     keyboard/programmatic starts wait too. -->
+                <button class="play-btn boot-hidden" id="hint" type="button" aria-label="Play — open the book">
+                  <img class="play-img" src="assets/play-button.webp" alt="" aria-hidden="true" />
+                </button>
+                <div class="boot-loader" id="bootLoader" role="progressbar"
+                     aria-label="Loading the story" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                  <div class="boot-track"><div class="boot-fill" id="bootFill"></div></div>
+                  <div class="boot-pct" id="bootPct">Loading&hellip; 0%</div>
+                </div>
+                <noscript><style>.play-btn.boot-hidden{opacity:1;visibility:visible;pointer-events:auto}.boot-loader{display:none}</style></noscript>
+              </div>
+              <!-- BACK of the front cover: intentionally BLANK (plain dark board). -->
+              <div class="face back"></div>
+            </div>
+            </div><!-- /cover-holder -->
+
+          </div>
+        </div>
+      </div>
+    </div>
+    </div><!-- /cover-scene -->
+
+    <!-- Flat, top-most, transparent tap zone that only OPENS the book. -->
+    <div class="tap-catcher" id="tapCatcher"></div>
+
+    <!-- (THE END is now a real final PAGE — the last leaf, built by script.js:
+         a cream "paper" page with "THE END" + a Replay button. Replay closes the
+         whole book, reverse of the opening swing, back to the front cover.) -->
+    </div><!-- /book-stage -->
+    </div><!-- /flip-scale -->
+  </div>
+
+  <!-- Progress read-out -->
+  <!-- (page counter removed) -->
+</div>
+
+<!-- (No HOME button. The only way back to the front cover is the Replay button on
+     THE END page, which runs the same closing swing.) -->
+
+<!-- Flip arrows OUTSIDE the book, parked in the book's bottom-left / bottom-right
+     gutter (back = left, forward = right). This is the ONLY prev/next control set —
+     the old duplicate .arrow.prev / .arrow.next circles have been removed. -->
+<button class="corner-arrow back" id="cornerPrev" aria-label="Previous page">
+  <svg viewBox="0 0 48 48" aria-hidden="true">
+    <path d="M46 19 L30 5 L30 12 C20 11 11 15 6 30 L12 33 C18 24 22 24 30 24 L30 33 Z" fill="currentColor"/>
+  </svg>
+</button>
+<button class="corner-arrow fwd" id="cornerNext" aria-label="Next page">
+  <svg viewBox="0 0 48 48" aria-hidden="true">
+    <path d="M46 19 L30 5 L30 12 C20 11 11 15 6 30 L12 33 C18 24 22 24 30 24 L30 33 Z" fill="currentColor"/>
+  </svg>
+</button>
+
+<!-- Embedded game overlay (LBD pages). A body-level iframe so it can expand to a
+     TRUE full screen — a CSS transform on .flip-scale would trap position:fixed.
+     JS loads the CURRENT lbd page's game into it and toggles .fullscreen. -->
+<div class="lbd-stage" id="lbdStage" aria-hidden="true">
+  <iframe id="lbdFrame" title="Game" allow="autoplay; fullscreen" allowfullscreen></iframe>
+  <!-- Opaque stand-in painted ON TOP of the iframe, holding the game's own title
+       art (the same poster the page leaf shows). A browser does not rasterize a
+       hidden iframe, so the game's first real paint can only happen once the
+       stage is on screen — and until those tiles land the iframe shows its own
+       unpainted state (black body, then the sandy background colour). This cover
+       occupies exactly that window: the stage is revealed with the cover opaque,
+       and the cover only fades once the game reports it has actually painted. -->
+  <div class="lbd-cover" id="lbdCover" aria-hidden="true"></div>
+</div>
+
+<!-- Inlined one-shot SFX (base64) for glitch-free Web Audio playback on file:// -->
+<script src="sfx-data.js"></script>
+<!-- Auto-generated byte-accurate size table for the boot preloader's progress bar -->
+<script src="preload-manifest.js"></script>
+<!-- All behaviour lives in script.js -->
+<script src="script.js"></script>
+</body>
+</html>

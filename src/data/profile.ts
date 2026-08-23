@@ -294,6 +294,28 @@ export const profile = {
         touch: "TAP THE CORNER ARROWS · LANDSCAPE",
       },
     },
+    {
+      id: "great-fish-rescue",
+      title: "The Great Fish Rescue",
+      category: "INTERACTIVE STORYBOOK",
+      year: "2026",
+      role: "Design & Development",
+      description:
+        "A second 3D flipbook, built around two games instead of one. Ten video pages carry the story; three of them stop and wait. On page two, four desert ponds light up one at a time and each has to be found before the book will turn. After page six the leaf uncurls onto a fish-sorting game, and after page eight a fish-counting one — each opening as printed title art, expanding to fullscreen when tapped, then closing itself and turning the page once it is finished. Both title cards are rendered from the games' own start screens by a script in the repo, so the picture the page turns onto is never out of step with the game behind it.",
+      technologies: [
+        "CSS 3D Transforms",
+        "JavaScript",
+        "WebM Video",
+        "Web Audio",
+      ],
+      image: "/projects/great-fish-rescue.webp",
+      /** Playable build lives in /public/games/great-fish-rescue. */
+      playUrl: "/games/great-fish-rescue/index.html",
+      playControls: {
+        pointer: "CLICK THE CORNER ARROWS · CLICK THE PAGE",
+        touch: "TAP THE CORNER ARROWS · LANDSCAPE",
+      },
+    },
   ] as Project[],
 
   /* --- Experience --------------------------------------------------------- */

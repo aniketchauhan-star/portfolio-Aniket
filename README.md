@@ -133,9 +133,9 @@ canonical URL, OpenGraph tags, `robots.txt` and `sitemap.xml`.
 
 ## Playable projects
 
-Two builds ship inside this site — `Platform Adventure` (a canvas platformer)
-and `Power Up, Bots!` (an interactive 3D flipbook with a maths game embedded in
-one of its pages). Each is a self-contained folder:
+Three builds ship inside this site — `Platform Adventure` (a canvas
+platformer) and two interactive 3D flipbooks, each with games embedded in its
+pages. Every one is a self-contained folder:
 
 ```
 public/games/platform-adventure/
@@ -145,7 +145,18 @@ public/games/power-up-bots/
   index.html   script.js   styles.css   preloader.js   preload-manifest.js
   sfx-data.js  assets/     sfx/
   PowerUp-Bots-main/story/     ← the halves game the flipbook embeds
+
+public/games/great-fish-rescue/
+  index.html   script.js   styles.css   preload-manifest.js
+  sfx-data.js  assets/     sfx/     tools/
+  LBD 1/       ← the fish-sorting game  (page 7)
+  LBD 2/       ← the fish-counting game (page 10)
 ```
+
+The flipbooks reference their embedded games by relative path, so the folder
+drops in as-is. `great-fish-rescue/tools/gen-title-card.mjs` is kept because
+`script.js` points at it: each game's title card is a render of that game's own
+start screen, and it has to be regenerated whenever a title screen changes.
 
 and the project entry points at it:
 
