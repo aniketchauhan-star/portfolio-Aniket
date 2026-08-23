@@ -153,7 +153,8 @@ with **Fullscreen** and **Open in new tab** underneath. The build is not
 downloaded until the visitor presses play — several megabytes of sprites and
 audio should not load just because someone opened a project page. The frame's
 width is capped from `100svh` so the whole game is on screen even on a
-landscape phone.
+landscape phone. The build itself is a landscape game and keeps its own rotate
+prompt; the surrounding page does not require rotating.
 
 The card marks these projects with a `PLAYABLE` chip and reads
 `PLAY PROJECT` instead of `VIEW PROJECT`.
@@ -273,25 +274,33 @@ custom property at the call site.
 - Particles are one instanced draw call; the orbital nodes are one
   `InstancedMesh`; geometry and materials are shared and explicitly disposed.
 
-### Landscape only on handhelds
+### Every orientation, every resolution
 
-The site is designed for landscape. `OrientationGate` shows a full-screen
-rotate prompt when a **touch** device is held in portrait; desktops are never
-gated, since a tall browser window is not a rotated device and the visitor
-would have no way to comply. The lock is applied with a `data-locked`
-attribute on `<html>` rather than an inline style, because the preloader
-clears `style.overflow` when it finishes and would otherwise unlock the page
-behind the prompt.
+There is no orientation gate. The site renders in portrait and landscape at
+any size, from a 320px phone to a 1560px desktop, and nothing asks the visitor
+to rotate their device.
 
-That makes the common phone viewport short and wide — roughly 844×390 — so
-`globals.css` re-derives the whole display scale from `vh` and compresses the
-vertical rhythm under
-`@media (orientation: landscape) and (max-height: 560px)`. Without it the hero
-alone would be taller than the screen.
+Three things carry that:
 
-To drop the gate, remove `<OrientationGate />` from
-`src/components/layout/Chrome.tsx`; the portrait layouts are all still there
-and will render.
+- **Layout.** Every multi-column section is a single column below `lg`, and the
+  two places where a desktop layout would not survive being squeezed have real
+  small-screen counterparts rather than shrunken copies: `SkillsMobile` (a
+  thumb-driven snap rail) stands in for the `SkillOrbit`, and `MobileMenu` (a
+  full-screen overlay) stands in for the navigation pill.
+- **Short landscape.** A phone on its side is roughly 844×390, so height
+  becomes the constraint. Under
+  `@media (orientation: landscape) and (max-height: 560px)` the display scale
+  is re-derived from `vh` and the vertical rhythm compresses — without it the
+  hero alone would be taller than the screen.
+- **Narrow portrait.** The display clamps bottom out at a floor tuned for a
+  ~390px phone, so under `@media (max-width: 389px)` those floors come down
+  and the section rhythm tightens. Otherwise the longest heading lines would
+  reach the gutter and clip on a 320–375px screen.
+
+The one exception is the embedded platformer, which is a landscape game: it
+keeps its own rotate prompt inside the iframe, and the frame offers
+**Fullscreen** (which requests a landscape lock where the browser allows it).
+That is scoped to the game — the portfolio itself never blocks.
 
 ### Accessibility & fallbacks
 

@@ -133,14 +133,6 @@
     cursor: none !important;
   }
 
-  /* Set by <OrientationGate />. Wins over the preloader's inline reset, so
-     the page can never scroll behind the rotate prompt. */
-  html[data-locked],
-  html[data-locked] body {
-    overflow: hidden !important;
-    overscroll-behavior: none;
-  }
-
   ::-webkit-scrollbar {
     width: 0;
     height: 0;
@@ -386,11 +378,10 @@
 /* ==========================================================================
    SHORT LANDSCAPE VIEWPORTS
    --------------------------------------------------------------------------
-   The site is landscape-only on handhelds, which means the common phone
-   viewport is now something like 844×390 — very wide and very short. Height,
-   not width, becomes the constraint, so the display scale is re-derived from
-   `vh` and the vertical rhythm is compressed. Without this the hero alone
-   would be taller than the screen.
+   A phone turned on its side is very wide and very short — roughly 844×390.
+   Height, not width, becomes the constraint, so the display scale is
+   re-derived from `vh` and the vertical rhythm is compressed. Without this the
+   hero alone would be taller than the screen.
    ========================================================================== */
 
 @media (orientation: landscape) and (max-height: 560px) {
@@ -421,6 +412,46 @@
 
   .hero-subtitle {
     line-height: 1.55;
+  }
+}
+
+/* ==========================================================================
+   NARROW PORTRAIT VIEWPORTS
+   --------------------------------------------------------------------------
+   The display clamps bottom out at a size tuned for a ~390px phone, so on a
+   320-375px screen the longest lines ("EXPERIENCES WHERE", "UNEXPECTED.")
+   reach the gutter. `body` clips overflow, so nothing scrolls sideways — the
+   type would just get cut. Below 390px the floors come down and the section
+   rhythm tightens instead.
+   ========================================================================== */
+
+@media (max-width: 389px) {
+  :root {
+    --spacing-section: clamp(4.5rem, 12vh, 7rem);
+  }
+
+  .display-hero {
+    font-size: clamp(2.85rem, 15vw, 3.6rem);
+  }
+  .display-contact {
+    font-size: clamp(1.95rem, 10.5vw, 2.4rem);
+  }
+  .display-xl {
+    font-size: clamp(2.05rem, 11vw, 2.6rem);
+  }
+  .display-lg {
+    font-size: clamp(1.6rem, 8.5vw, 2rem);
+  }
+  .display-md {
+    font-size: clamp(1.3rem, 6.5vw, 1.5rem);
+  }
+
+  /* The longest subtitle line is 28 monospace characters, which at the base
+     tracking is exactly the content width — the trailing letter-space then
+     pushes it past the gutter. */
+  .hero-subtitle {
+    font-size: 0.72rem;
+    letter-spacing: 0.14em;
   }
 }
 

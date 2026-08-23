@@ -3,7 +3,6 @@
 import dynamic from "next/dynamic";
 import { useCallback } from "react";
 import { Preloader } from "./Preloader";
-import { OrientationGate } from "./OrientationGate";
 import { SmoothScroll } from "./SmoothScroll";
 import { Cursor } from "@/components/ui/Cursor";
 import { NoiseOverlay } from "@/components/ui/NoiseOverlay";
@@ -35,8 +34,6 @@ export function Chrome() {
       <NoiseOverlay />
       <Cursor />
       <Preloader onDone={onDone} />
-      {/* Sits above the preloader: rotating is the first thing to do. */}
-      <OrientationGate />
     </>
   );
 }
