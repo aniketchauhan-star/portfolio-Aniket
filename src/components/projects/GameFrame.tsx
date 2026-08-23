@@ -11,6 +11,8 @@ export interface GameFrameProps {
   title: string;
   poster?: string;
   aspect?: string;
+  /** Control hint under the frame. Defaults to an arrow-keys/WASD build. */
+  controls?: { pointer: string; touch: string };
 }
 
 /**
@@ -25,7 +27,18 @@ export interface GameFrameProps {
  * persists the chosen character, best score and unlocked levels — is a
  * combination the browser itself warns is equivalent to no sandbox at all.
  */
-export function GameFrame({ src, title, poster, aspect = "16 / 9" }: GameFrameProps) {
+const DEFAULT_CONTROLS = {
+  pointer: "ARROW KEYS / WASD · SPACE",
+  touch: "ON-SCREEN CONTROLS · LANDSCAPE",
+};
+
+export function GameFrame({
+  src,
+  title,
+  poster,
+  aspect = "16 / 9",
+  controls = DEFAULT_CONTROLS,
+}: GameFrameProps) {
   // Cap the frame's width so its derived height always fits the viewport.
   // On a landscape phone a full-width 16:9 frame is taller than the screen,
   // which would mean scrolling the page while trying to play.
@@ -163,7 +176,7 @@ export function GameFrame({ src, title, poster, aspect = "16 / 9" }: GameFramePr
         </a>
 
         <p className="label w-full sm:w-auto">
-          {isTouch ? "ON-SCREEN CONTROLS · LANDSCAPE" : "ARROW KEYS / WASD · SPACE"}
+          {isTouch ? controls.touch : controls.pointer}
         </p>
       </div>
     </div>

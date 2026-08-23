@@ -133,11 +133,18 @@ canonical URL, OpenGraph tags, `robots.txt` and `sitemap.xml`.
 
 ## Playable projects
 
-`Platform Adventure` ships inside this site. The build lives at:
+Two builds ship inside this site — `Platform Adventure` (a canvas platformer)
+and `Power Up, Bots!` (an interactive 3D flipbook with a maths game embedded in
+one of its pages). Each is a self-contained folder:
 
 ```
 public/games/platform-adventure/
   index.html   game.js   style.css   assets/   audio/
+
+public/games/power-up-bots/
+  index.html   script.js   styles.css   preloader.js   preload-manifest.js
+  sfx-data.js  assets/     sfx/
+  PowerUp-Bots-main/story/     ← the halves game the flipbook embeds
 ```
 
 and the project entry points at it:
@@ -145,6 +152,10 @@ and the project entry points at it:
 ```ts
 playUrl: "/games/platform-adventure/index.html",
 playAspect: "16 / 9",   // optional, defaults to 16:9
+playControls: {         // optional, defaults to arrow-keys/WASD
+  pointer: "CLICK THE CORNER ARROWS · CLICK THE PAGE",
+  touch:   "TAP THE CORNER ARROWS · LANDSCAPE",
+},
 ```
 
 Any project with a `playUrl` gets a Play surface in its detail overlay instead
@@ -162,6 +173,12 @@ The card marks these projects with a `PLAYABLE` chip and reads
 **To add another playable build:** drop a self-contained folder in
 `public/games/<name>/` and set `playUrl` on its project entry. Nothing else is
 needed.
+
+One caveat on file names: **no commas**. Next.js serves `public/` files itself
+and 404s on a literal `,` in the path, which browsers do not percent-encode —
+so a build that worked over Live Server can lose exactly one asset here. Spaces,
+`!`, `(`, `)` and non-ASCII characters are all fine. `Power Up, Bots!` had one
+voice-over clip caught by this; it was renamed.
 
 ## Adding projects
 

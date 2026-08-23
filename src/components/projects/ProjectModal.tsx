@@ -185,6 +185,7 @@ export function ProjectModal({
               title={project.title}
               poster={project.image}
               aspect={project.playAspect}
+              controls={project.playControls}
             />
           ) : (
             <div className="edge relative aspect-[16/9] w-full overflow-hidden rounded-2xl">

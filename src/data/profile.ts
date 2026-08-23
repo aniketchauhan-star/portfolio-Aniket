@@ -78,6 +78,12 @@ export interface Project extends Placeholder {
   playUrl?: string;
   /** Aspect ratio of the playable build. Defaults to 16 / 9. */
   playAspect?: string;
+  /**
+   * How this build is controlled, shown as a hint under the frame. Not every
+   * playable is a keyboard platformer, so each one says its own — the default
+   * covers arrow-keys/WASD builds.
+   */
+  playControls?: { pointer: string; touch: string };
 }
 
 export interface ExperienceEntry extends Placeholder {
@@ -265,6 +271,28 @@ export const profile = {
       image: "/projects/platform-adventure.jpg",
       /** Playable build lives in /public/games/platform-adventure. */
       playUrl: "/games/platform-adventure/index.html",
+    },
+    {
+      id: "power-up-bots",
+      title: "Power Up, Bots!",
+      category: "INTERACTIVE STORYBOOK",
+      year: "2026",
+      role: "Design & Development",
+      description:
+        "A maths picture book that reads like a real object. The hardcover has thickness and a spine, swings open on tap, and its twelve pages turn in 3D over full-bleed video. Some pages wait to be touched: a shelf of shapes plays a clip for each group the reader taps, and two pages hold on a still frame until the right shape is found. Two thirds of the way in, the page becomes a playable round — cut an energy block into two equal halves with a laser to charge the bots — which expands to fullscreen, then hands control back and turns the page itself when the reader finishes. Every asset is fetched behind a loading bar on the cover, so the book never stalls mid-story.",
+      technologies: [
+        "CSS 3D Transforms",
+        "JavaScript",
+        "WebM Video",
+        "Web Audio",
+      ],
+      image: "/projects/power-up-bots.webp",
+      /** Playable build lives in /public/games/power-up-bots. */
+      playUrl: "/games/power-up-bots/index.html",
+      playControls: {
+        pointer: "CLICK THE CORNER ARROWS · CLICK THE PAGE",
+        touch: "TAP THE CORNER ARROWS · LANDSCAPE",
+      },
     },
   ] as Project[],
 
