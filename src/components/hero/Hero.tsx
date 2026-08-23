@@ -11,7 +11,7 @@ import { useRevealed } from "@/lib/reveal-store";
 
 /**
  * Hero shell. Owns the "leaving the hero" scrub: the typography lifts and
- * dissolves while the identity core recedes (handled by the scene), so the
+ * dissolves while the robot recedes (handled by the scene), so the
  * transition into the about section reads as one continuous move.
  */
 export function Hero() {

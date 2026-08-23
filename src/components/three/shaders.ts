@@ -1,6 +1,6 @@
 /**
- * All GLSL for the identity core lives here so the shaders can be read as one
- * piece. Every program is deliberately small — the look comes from layering
+ * All GLSL for the robot and its rings lives here so the shaders can be read
+ * as one piece. Every program is deliberately small — the look comes from layering
  * cheap terms (fresnel, domain-warped bands, additive rim), not from expensive
  * noise or post-processing.
  */
@@ -223,6 +223,121 @@ export const SHELL_FRAG = /* glsl */ `
     a += uPulse * rim * 0.5;
 
     gl_FragColor = vec4(col * (0.8 + uPulse * 0.6), a);
+    #include <colorspace_fragment>
+  }
+`;
+
+/* ==========================================================================
+   ROBOT VISOR
+   --------------------------------------------------------------------------
+   The face plate, and the only part of the robot that emits. Three cheap
+   terms layered: a vertical gradient for the glass, a scan line travelling
+   down it, and a bright fresnel edge where the plate curves away. The scan is
+   the same instrument-readout cue the DOM uses (`.planet-scan`, `.scan-light`),
+   so the robot reads as part of the same interface.
+   ========================================================================== */
+
+export const VISOR_VERT = /* glsl */ `
+  varying vec2 vUv;
+  varying vec3 vNormalW;
+  varying vec3 vViewDir;
+
+  void main() {
+    vUv = uv;
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    vNormalW = normalize(normalMatrix * normal);
+    vViewDir = normalize(-mv.xyz);
+    gl_Position = projectionMatrix * mv;
+  }
+`;
+
+export const VISOR_FRAG = /* glsl */ `
+  precision highp float;
+
+  uniform float uTime;
+  uniform float uEnergy;
+  uniform float uPulse;
+  uniform vec3 uCyan;
+  uniform vec3 uViolet;
+
+  varying vec2 vUv;
+  varying vec3 vNormalW;
+  varying vec3 vViewDir;
+
+  void main() {
+    // Glass body: darkest at the top of the plate, brightening downward, so
+    // the visor has a direction and does not read as a flat lit rectangle.
+    float grad = smoothstep(0.0, 1.0, vUv.y);
+
+    // One scan line sweeping down, plus a much fainter second at double rate.
+    float sweep = fract(uTime * 0.22);
+    float scan  = exp(-pow((vUv.y - sweep) * 14.0, 2.0));
+    scan += exp(-pow((vUv.y - fract(sweep + 0.5)) * 26.0, 2.0)) * 0.35;
+
+    // Fine horizontal ruling — the readout texture, kept near-invisible.
+    float rule = 0.5 + 0.5 * sin(vUv.y * 190.0);
+
+    // Bright where the plate turns away from the eye.
+    float f = 1.0 - abs(dot(normalize(vNormalW), normalize(vViewDir)));
+    float rim = pow(f, 2.4);
+
+    vec3 col = mix(uViolet, uCyan, 0.30 + grad * 0.55);
+    float a =
+        0.13 + grad * 0.16          // the plate itself
+      + scan * 0.55                 // the travelling line
+      + rule * 0.035                // ruling
+      + rim  * 0.60;                // curved edge
+
+    col += uCyan * scan * 0.7;
+    col += uCyan * rim * 0.5;
+
+    // Energy dims the visor through the quiet middle chapters; a timeline
+    // pulse flashes it.
+    a *= 0.45 + uEnergy * 0.55;
+    a += uPulse * (0.25 + rim * 0.4);
+    col *= 0.85 + uPulse * 0.9;
+
+    gl_FragColor = vec4(col, clamp(a, 0.0, 1.0));
+    #include <colorspace_fragment>
+  }
+`;
+
+/* ==========================================================================
+   GLOW
+   --------------------------------------------------------------------------
+   Light on nothing — used for the robot's hover plume. An INVERSE fresnel:
+   brightest where the surface faces the eye and falling to nothing at the
+   silhouette, which is what makes a sphere read as a soft volume of light
+   rather than as a solid lozenge. A plain basic material has no falloff at
+   all, and a normal fresnel would light exactly the wrong half.
+   ========================================================================== */
+
+export const GLOW_VERT = /* glsl */ `
+  varying vec3 vNormalW;
+  varying vec3 vViewDir;
+
+  void main() {
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    vNormalW = normalize(normalMatrix * normal);
+    vViewDir = normalize(-mv.xyz);
+    gl_Position = projectionMatrix * mv;
+  }
+`;
+
+export const GLOW_FRAG = /* glsl */ `
+  precision highp float;
+
+  uniform float uEnergy;
+  uniform float uPulse;
+  uniform vec3 uCyan;
+
+  varying vec3 vNormalW;
+  varying vec3 vViewDir;
+
+  void main() {
+    float face = clamp(dot(normalize(vNormalW), normalize(vViewDir)), 0.0, 1.0);
+    float a = pow(face, 2.6) * (0.35 + uEnergy * 0.45) + uPulse * 0.3;
+    gl_FragColor = vec4(uCyan * (0.75 + uPulse * 0.8), a);
     #include <colorspace_fragment>
   }
 `;

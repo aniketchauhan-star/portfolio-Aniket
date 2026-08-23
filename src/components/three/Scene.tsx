@@ -8,7 +8,7 @@ import { sceneState } from "@/lib/scene-state";
 import { detectTier, hasWebGL, profileFor, type Tier } from "@/lib/quality";
 import { damp } from "@/lib/utils";
 import { CoreRig } from "./CoreRig";
-import { IdentityCore } from "./IdentityCore";
+import { Robot } from "./Robot";
 import { OrbitalRings } from "./OrbitalRings";
 import { ParticleField } from "./ParticleField";
 import { AdaptivePerformance } from "./AdaptivePerformance";
@@ -273,7 +273,7 @@ export default function Scene() {
           <AmbientLighting environment={quality.environment} />
 
           <CoreRig>
-            <IdentityCore quality={quality} />
+            <Robot quality={quality} />
             <OrbitalRings quality={quality} />
           </CoreRig>
 

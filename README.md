@@ -250,7 +250,7 @@ src/
     layout/                Navbar, MobileMenu, Footer, Preloader, Section,
                            SectionHeader, SmoothScroll, Chrome
     hero/                  Hero, HeroContent, ScrollIndicator, LocalTime, PointerReadout
-    three/                 Scene, CoreRig, IdentityCore, OrbitalRings,
+    three/                 Scene, CoreRig, Robot, OrbitalRings,
                            ParticleField, AdaptivePerformance, StaticFallback, shaders
     skills/                Skills, SkillOrbit, SkillsMobile, OrbitPlanet
     projects/              Projects, ProjectCard, ProjectModal, ProjectVisual, GameFrame
@@ -275,11 +275,43 @@ particle spread, and everything damps toward those numbers. The scene is
 modulated as you scroll — it is never torn down and rebuilt.
 
 To re-stage the 3D layer, edit `src/lib/scene-choreography.ts`. That single
-table controls where the core sits in every section.
+table controls where the robot sits in every section.
 
 Scroll position, pointer position and the active chapter live in
 `lib/scene-state.ts` — a plain mutable object, deliberately *not* React state,
 so the WebGL layer can read them every frame without re-rendering the page.
+
+### The robot
+
+The subject of the WebGL scene is a hovering machine (`three/Robot.tsx`), and
+like everything else in the scene it is **generated geometry** — there is no
+model file to download. Eight-sided drums give the head and torso a machined
+silhouette that reads against a near-black page, because each facet catches
+the cyan and violet light cards at a different angle. (Flat boxes do not work
+here: `boxGeometry`'s segment arguments subdivide faces, they do not chamfer,
+so a box robot renders as a stack of unlit slabs.)
+
+The only emissive surfaces are the visor, the chest core, the seams, the
+antenna tip and the hover plume:
+
+| Part | How |
+| --- | --- |
+| Visor | `VISOR_FRAG` — a vertical gradient, a scan line travelling down it, fine ruling and a fresnel edge. Drawn on an *open cylinder wall* wrapping the front of the head: the front facet is only 0.126 wide, so any readable flat plate overhangs the silhouette, and a cylinder's UVs still run `v` = up, which is the axis the scan sweeps |
+| Chest core | `ENERGY_FRAG`, the same shader the sphere it replaced ran — which is why `energy` and `pulse` still land on the robot untouched |
+| Hover plume | `GLOW_FRAG` — an *inverse* fresnel, brightest facing the eye and falling off at its own silhouette. A flat material has no falloff and reads as a solid lozenge; a normal fresnel lights exactly the wrong half |
+
+Two things in the shared rig had to change because the subject now has a
+**front**, where a sphere had none:
+
+- `CoreRig` sways the robot ±0.5rad about front rather than accumulating a
+  spin. An ever-increasing rotation turns a face away and never brings it back.
+- The per-chapter `spin` offsets in the choreography are bounded to about ±0.6
+  instead of climbing 0 → 3.2. At the old contact value the robot showed its
+  back at the exact moment the CTA wants it looking at the visitor.
+
+On a phone the robot also lifts into the empty band **above** the hero copy
+rather than sitting beside it. A sphere clipped by the right edge still reads
+as a sphere; half a robot reads as debris.
 
 ### The gas giant
 
@@ -335,7 +367,7 @@ That is scoped to the game — the portfolio itself never blocks.
 - `prefers-reduced-motion`: smooth scrolling is skipped, the custom cursor is
   disabled, all continuous 3D motion stops, the scene switches to
   demand-driven rendering, and every reveal renders in its final state.
-- No WebGL: a pure-CSS reading of the core (`StaticFallback`) takes over —
+- No WebGL: a pure-CSS reading of the robot (`StaticFallback`) takes over —
   same composition, same palette, no canvas.
 - Semantic landmarks, a skip link, visible focus states, keyboard-operable
   project cards, Escape-to-close and focus-trapped overlays, and ≥44px touch

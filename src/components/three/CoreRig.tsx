@@ -8,7 +8,7 @@ import { chapterState } from "@/lib/scene-choreography";
 import { damp } from "@/lib/utils";
 
 /**
- * Owns the transform shared by the identity core and its rings.
+ * Owns the transform shared by the robot and its rings.
  *
  * Runs at priority -1 so the damped values in `coreLive` are already fresh
  * when the child components read them later in the same frame.
@@ -16,13 +16,17 @@ import { damp } from "@/lib/utils";
 export function CoreRig({ children }: { children: ReactNode }) {
   const group = useRef<Group>(null);
   const spin = useRef(0);
+  const turn = useRef(0);
   const breathe = useRef(0);
   const width = useThree((s) => s.size.width);
 
-  // Narrow viewports pull the core toward centre and shrink it, rather than
-  // letting a desktop composition run off the edge of a phone.
-  const offsetFactor = width < 640 ? 0.62 : width < 1024 ? 0.78 : width < 1280 ? 0.92 : 1;
-  const sizeFactor = width < 640 ? 0.8 : width < 1024 ? 0.9 : 1;
+  // Narrow viewports pull the robot toward centre and shrink it, rather than
+  // letting a desktop composition run off the edge of a phone. The pull is
+  // harder than it was for the old sphere: a sphere clipped by the right edge
+  // still reads as a sphere, whereas half a robot reads as debris.
+  const narrow = width < 640;
+  const offsetFactor = narrow ? 0.32 : width < 1024 ? 0.72 : width < 1280 ? 0.92 : 1;
+  const sizeFactor = narrow ? 0.82 : width < 1024 ? 0.9 : 1;
 
   useFrame((_, delta) => {
     const g = group.current;
@@ -33,7 +37,7 @@ export function CoreRig({ children }: { children: ReactNode }) {
     const base = chapterState(sceneState.chapter);
     const reduced = sceneState.reducedMotion;
 
-    // Each project gives the core a distinct posture: the first turns it, the
+    // Each project gives the robot a distinct posture: the first turns it, the
     // second opens the rings, the third reorganises the particle field. The
     // scene is modulated, never rebuilt.
     const p = sceneState.activeProject;
@@ -52,15 +56,28 @@ export function CoreRig({ children }: { children: ReactNode }) {
     const px = sceneState.pointerX;
     const py = sceneState.pointerY;
 
+    // In the two chapters where the subject is in the foreground, a phone has
+    // no horizontal room to put it beside the copy — so it lifts into the
+    // empty band above the hero text instead of sitting behind the name. The
+    // mid chapters are already high and far, and need no lift.
+    const foreground =
+      sceneState.chapter === "hero" || sceneState.chapter === "contact";
+    const lift = narrow && foreground ? 1.45 : 0;
+
     g.position.x = damp(g.position.x, target.x * offsetFactor, 0.0015, dt);
-    g.position.y = damp(g.position.y, target.y + py * 0.12, 0.0015, dt);
+    g.position.y = damp(g.position.y, target.y + lift + py * 0.12, 0.0015, dt);
     g.position.z = damp(g.position.z, target.z, 0.0015, dt);
 
     const s = damp(g.scale.x, target.scale * sizeFactor, 0.0015, dt);
     g.scale.setScalar(s);
 
     if (!reduced) {
-      spin.current += dt * 0.085;
+      // An OSCILLATION, not an accumulation. The subject has a face: a spin
+      // that keeps adding turns it away and never brings it back, so instead
+      // it sways ±0.5rad about front and always returns. The per-chapter
+      // `spin` offsets below still stack on top of this.
+      turn.current += dt;
+      spin.current = Math.sin(turn.current * 0.17) * 0.5;
       breathe.current += dt;
     }
 
@@ -72,7 +89,7 @@ export function CoreRig({ children }: { children: ReactNode }) {
     );
     g.rotation.x = damp(g.rotation.x, -py * 0.1, 0.004, dt);
 
-    // Slow breathing — the core is alive, not idling.
+    // Slow breathing — the machine is alive, not idling.
     const breath = reduced ? 0 : Math.sin(breathe.current * 0.55) * 0.014;
     g.scale.multiplyScalar(1 + breath);
 

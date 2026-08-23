@@ -53,7 +53,7 @@ export const sceneState: SceneState = {
   reducedMotion: false,
 };
 
-/** Fire a short light pulse through the identity core. */
+/** Fire a short light pulse through the robot — visor, chest core, antenna. */
 export const firePulse = (strength = 1) => {
   sceneState.pulse = Math.min(1, sceneState.pulse + strength);
 };

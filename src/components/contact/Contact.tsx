@@ -11,7 +11,7 @@ import { useReducedMotion } from "@/hooks/useReducedMotion";
 import { sceneState } from "@/lib/scene-state";
 
 /**
- * The final beat. The identity core comes back to the foreground, its rings
+ * The final beat. The robot comes back to the foreground, its rings
  * align and the particle field gathers around it — and pointer proximity to
  * the primary control gently increases that pull.
  */

@@ -5,13 +5,13 @@ import type { SceneChapter } from "./scene-state";
  *
  * ENTER → DISCOVER → EXPLORE → JOURNEY → CONNECT
  *
- * Each chapter declares where the identity core sits, how open its rings are
- * and how the particle field behaves. Everything else damps toward these
- * numbers, so the transition between chapters is always continuous — the
- * scene is never rebuilt.
+ * Each chapter declares where the robot sits, how open its rings are and how
+ * the particle field behaves. Everything else damps toward these numbers, so
+ * the transition between chapters is always continuous — the scene is never
+ * rebuilt.
  */
 export interface ChapterState {
-  /** Core position in world space. */
+  /** Robot position in world space. */
   x: number;
   y: number;
   z: number;
@@ -20,11 +20,19 @@ export interface ChapterState {
   ringAlign: number;
   /** Radial spread multiplier for the rings. */
   ringSpread: number;
-  /** Core emissive strength. */
+  /** Emissive strength — visor, chest core and seams all read this. */
   energy: number;
   /** Particle radius multiplier — > 1 disperses, < 1 gathers. */
   particleSpread: number;
-  /** Extra Y rotation offset applied to the whole core group. */
+  /**
+   * Extra Y rotation offset applied to the whole robot group, in radians.
+   *
+   * Bounded to roughly ±0.6. These used to climb 0 → 3.2 across the scroll,
+   * which is fine for a sphere and wrong for something with a face: by the
+   * contact chapter the robot was showing its back at the exact moment the
+   * CTA wants it looking at the visitor. The chapters still each get their
+   * own posture, just inside a range that always reads as front-on.
+   */
   spin: number;
 }
 
@@ -52,13 +60,13 @@ const CHAPTERS: Record<SceneChapter, ChapterState> = {
     ringAlign: 0.15,
     ringSpread: 1.12,
     // Dimmest of the mid chapters: the biography column reaches the right
-    // margin here, so the core has to sit behind text and must not compete.
+    // margin here, so the robot has to sit behind text and must not compete.
     energy: 0.42,
     particleSpread: 1.18,
-    spin: 0.5,
+    spin: 0.34,
   },
   skills: {
-    // The DOM gas giant is the subject here, so the core drops right back and
+    // The DOM gas giant is the subject here, so the robot drops right back and
     // reads as a distant object rather than a second focal point.
     x: 5.6,
     y: 1.8,
@@ -68,7 +76,7 @@ const CHAPTERS: Record<SceneChapter, ChapterState> = {
     ringSpread: 1.38,
     energy: 0.4,
     particleSpread: 1.1,
-    spin: 1.1,
+    spin: 0.55,
   },
   projects: {
     x: 5.4,
@@ -79,7 +87,7 @@ const CHAPTERS: Record<SceneChapter, ChapterState> = {
     ringSpread: 0.94,
     energy: 0.5,
     particleSpread: 1.32,
-    spin: 1.9,
+    spin: -0.42,
   },
   experience: {
     x: 5.6,
@@ -90,7 +98,7 @@ const CHAPTERS: Record<SceneChapter, ChapterState> = {
     ringSpread: 1.06,
     energy: 0.66,
     particleSpread: 1.16,
-    spin: 2.6,
+    spin: 0.48,
   },
   knowledge: {
     // The rest stop: furthest away, dimmest, barely moving.
@@ -102,7 +110,7 @@ const CHAPTERS: Record<SceneChapter, ChapterState> = {
     ringSpread: 1.0,
     energy: 0.42,
     particleSpread: 1.05,
-    spin: 2.9,
+    spin: -0.3,
   },
   contact: {
     // Returns to the foreground, rings aligned, particles gathering.
@@ -114,7 +122,7 @@ const CHAPTERS: Record<SceneChapter, ChapterState> = {
     ringSpread: 0.82,
     energy: 1.4,
     particleSpread: 0.6,
-    spin: 3.2,
+    spin: 0.1,
   },
 };
 

@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 
 /**
  * One node on the timeline. Activating it sends a small light pulse through
- * the identity core in the background — a hand-off between the DOM and the
+ * the robot in the background — a hand-off between the DOM and the
  * WebGL layer, not a separate effect.
  */
 export function ExperienceItem({
