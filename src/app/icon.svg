@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#050609"/>
+  <circle cx="32" cy="32" r="21" fill="none" stroke="#6CF3FF" stroke-opacity="0.35" stroke-width="1.4"/>
+  <ellipse cx="32" cy="32" rx="26" ry="9" fill="none" stroke="#846BFF" stroke-opacity="0.45" stroke-width="1.2" transform="rotate(-22 32 32)"/>
+  <text x="32" y="39" font-family="Helvetica,Arial,sans-serif" font-size="19" font-weight="600" letter-spacing="-0.6" text-anchor="middle" fill="#F4F6FF">AC</text>
+</svg>

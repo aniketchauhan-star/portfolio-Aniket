@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Platform Adventure</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <!-- Only the weights actually rendered: the stylesheet declares no
+       font-weight at all, so every string paints at 400. Fredoka 500/600/700
+       used to be downloaded and never used; Lilita One ships a single weight.
+       Fredoka now covers its one visible string (the rotate prompt's
+       subtitle) at the weight that is really applied. -->
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Fredoka:wght@400&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game-wrapper">
+    <h1 class="game-title">PLATFORM ADVENTURE</h1>
+
+    <section class="game-card" aria-label="Platform adventure game">
+      <div class="canvas-shell" id="canvasShell">
+        <canvas
+          id="gameCanvas"
+          width="960"
+          height="540"
+          aria-label="Platform adventure game canvas"
+        ></canvas>
+
+        <!-- ================= HUD ================= -->
+        <div class="hud" id="hud" hidden>
+          <div class="hud-slot hud-slot--left">
+            <div class="hud-capsule hud-capsule--score" id="scoreDisplay" aria-label="Coins collected">
+              <span class="hud-icon hud-icon--coin" aria-hidden="true"></span>
+              <span class="hud-value" id="scoreValue">0</span>
+            </div>
+          </div>
+
+          <div class="hud-slot hud-slot--center">
+            <div class="hud-capsule hud-capsule--level" id="speedDisplay" aria-label="Level progress">
+              <span class="hud-level-label" id="levelLabel">LEVEL 1</span>
+              <span class="hud-level-track" aria-hidden="true">
+                <span class="hud-level-fill" id="levelProgress"></span>
+              </span>
+            </div>
+          </div>
+
+          <div class="hud-slot hud-slot--right">
+            <div class="hud-capsule hud-capsule--seeds" id="seedDisplay" aria-label="Seeds remaining">
+              <span class="hud-icon hud-icon--seed" aria-hidden="true"></span>
+              <span class="hud-value" id="seedValue">00</span>
+            </div>
+            <button class="hud-utility" id="pauseButton" type="button" aria-label="Pause game">
+              <span class="hud-utility-icon hud-utility-icon--pause" aria-hidden="true"></span>
+            </button>
+            <button class="hud-utility" id="soundDisplay" type="button" aria-label="Toggle sound">
+              <span class="hud-utility-icon hud-utility-icon--sound" aria-hidden="true"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- (Legacy speed display kept off; JS still references it for level updates) -->
+
+        <!-- ================= LOADING (horizontal bar over thumbnail) ================= -->
+        <div class="overlay overlay-screen overlay-screen--loading is-visible" id="loadingOverlay">
+          <div class="loading-dock">
+            <p class="loading-label">LOADING</p>
+            <div class="loading-bar" aria-hidden="true">
+              <div class="loading-bar__fill" id="loadingBarFill"></div>
+              <div class="loading-bar__shine"></div>
+            </div>
+            <p class="loading-percent" id="loadingText">0%</p>
+          </div>
+        </div>
+
+        <!-- ================= START (cover + play button image) ================= -->
+        <div class="overlay overlay-screen overlay-screen--start" id="startOverlay" hidden>
+          <img class="start-cover" id="startCoverImage" alt="Platform Adventure" draggable="false">
+
+          <button class="start-play-image is-locked" id="startButton" type="button" aria-label="Play">
+            <img id="startButtonImage" alt="Play" draggable="false">
+          </button>
+
+          <button class="corner-btn corner-btn--top-right" id="startSoundToggle" type="button" aria-label="Toggle sound">
+            <span class="hud-utility-icon hud-utility-icon--sound" aria-hidden="true"></span>
+          </button>
+
+        </div>
+
+        <!-- ================= CHARACTER SELECTION LOBBY ================= -->
+        <div class="overlay overlay-screen overlay-screen--lobby" id="lobbyOverlay" hidden>
+          <div class="lobby-scrim" aria-hidden="true"></div>
+
+          <div class="lobby-topbar">
+            <button class="corner-btn corner-btn--back" id="lobbyBackButton" type="button" aria-label="Back">
+              <span class="corner-icon corner-icon--back" aria-hidden="true"></span>
+            </button>
+            <div class="lobby-topbar__right">
+              <button class="corner-btn" id="lobbySoundToggle" type="button" aria-label="Toggle sound">
+                <span class="hud-utility-icon hud-utility-icon--sound" aria-hidden="true"></span>
+              </button>
+              <button class="corner-btn" id="lobbySettingsButton" type="button" aria-label="Settings">
+                <span class="corner-icon corner-icon--gear" aria-hidden="true"></span>
+              </button>
+            </div>
+          </div>
+
+          <div class="lobby-stage">
+            <div class="hero-pedestal" aria-hidden="true">
+              <div class="hero-pedestal__glow"></div>
+              <div class="hero-pedestal__disc"></div>
+            </div>
+            <img class="hero-portrait" id="lobbyHeroImage" alt="" draggable="false">
+            <div class="hero-tag">
+              <p class="hero-tag__name" id="lobbyHeroName">HERO</p>
+              <p class="hero-tag__ability" id="lobbyHeroAbility">Adventurer</p>
+            </div>
+          </div>
+
+          <div class="lobby-stats" id="lobbyStats">
+            <div class="stat-row">
+              <span class="stat-row__label">SPEED</span>
+              <span class="stat-row__dots" data-stat="speed" aria-hidden="true"></span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-row__label">JUMP</span>
+              <span class="stat-row__dots" data-stat="jump" aria-hidden="true"></span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-row__label">POWER</span>
+              <span class="stat-row__dots" data-stat="power" aria-hidden="true"></span>
+            </div>
+          </div>
+
+          <div class="lobby-carousel" id="lobbyCarousel" role="listbox" aria-label="Choose your hero">
+            <button class="carousel-nav carousel-nav--prev" id="carouselPrev" type="button" aria-label="Previous character">
+              <span class="carousel-nav__arrow" aria-hidden="true"></span>
+            </button>
+            <div class="carousel-track" id="carouselTrack"></div>
+            <button class="carousel-nav carousel-nav--next" id="carouselNext" type="button" aria-label="Next character">
+              <span class="carousel-nav__arrow" aria-hidden="true"></span>
+            </button>
+          </div>
+
+          <div class="lobby-play">
+            <!-- Shown only once level 2 has been unlocked: progress used to be
+                 saved and never offered back to the player. -->
+            <div class="level-picker" id="levelPicker" hidden>
+              <button class="level-picker__nav" id="levelPickerPrev" type="button" aria-label="Previous level">
+                <span class="carousel-nav__arrow" aria-hidden="true"></span>
+              </button>
+              <p class="level-picker__value">
+                <span class="level-picker__label">START AT</span>
+                <span class="level-picker__level" id="levelPickerValue" aria-live="polite">LEVEL 1</span>
+              </p>
+              <button class="level-picker__nav level-picker__nav--next" id="levelPickerNext" type="button" aria-label="Next level">
+                <span class="carousel-nav__arrow" aria-hidden="true"></span>
+              </button>
+            </div>
+            <button class="play-button play-button--primary lobby-play__button" id="lobbyPlayButton" type="button">
+              <span class="play-button__label">PLAY</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- ================= END SCREEN (win + gameover) ================= -->
+        <div class="overlay overlay-screen overlay-screen--end" id="gameOverOverlay" hidden>
+          <div class="end-confetti" id="endConfetti" aria-hidden="true"></div>
+
+          <div class="end-stack">
+            <div class="end-header">
+              <p class="end-kicker" id="endKicker">TRY AGAIN</p>
+              <h2 class="end-title" id="endTitle">GAME OVER</h2>
+            </div>
+
+            <div class="end-stats">
+              <div class="stat-tile">
+                <p class="stat-tile__label">SCORE</p>
+                <p class="stat-tile__value" id="finalScoreText">0</p>
+              </div>
+              <div class="stat-tile">
+                <p class="stat-tile__label">COINS</p>
+                <p class="stat-tile__value" id="finalCoinsText">0</p>
+              </div>
+              <div class="stat-tile stat-tile--best">
+                <p class="stat-tile__label" id="bestScoreLabel">BEST</p>
+                <p class="stat-tile__value" id="bestScoreText">0</p>
+              </div>
+            </div>
+
+            <div class="end-actions">
+              <button class="play-button play-button--primary" id="restartButton" type="button">
+                <span class="play-button__label" id="restartButtonLabel">PLAY AGAIN</span>
+              </button>
+              <div class="end-actions__secondary">
+                <button class="secondary-btn" id="replayButton" type="button" aria-label="Replay level">
+                  <span class="secondary-btn__icon secondary-btn__icon--replay" aria-hidden="true"></span>
+                  <span class="secondary-btn__label">REPLAY</span>
+                </button>
+                <button class="secondary-btn" id="homeButton" type="button" aria-label="Home screen">
+                  <span class="secondary-btn__icon secondary-btn__icon--home" aria-hidden="true"></span>
+                  <span class="secondary-btn__label">HOME</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= PAUSE ================= -->
+        <div class="overlay overlay-screen overlay-screen--pause" id="pauseOverlay" hidden>
+          <div class="pause-card">
+            <p class="pause-kicker">PAUSED</p>
+            <h2 class="pause-title">Take a Break</h2>
+            <div class="pause-actions">
+              <button class="play-button play-button--primary" id="resumeButton" type="button">
+                <span class="play-button__label">RESUME</span>
+              </button>
+              <div class="end-actions__secondary">
+                <button class="secondary-btn" id="pauseReplayButton" type="button" aria-label="Replay level">
+                  <span class="secondary-btn__icon secondary-btn__icon--replay" aria-hidden="true"></span>
+                  <span class="secondary-btn__label">REPLAY</span>
+                </button>
+                <button class="secondary-btn" id="pauseHomeButton" type="button" aria-label="Home screen">
+                  <span class="secondary-btn__icon secondary-btn__icon--home" aria-hidden="true"></span>
+                  <span class="secondary-btn__label">HOME</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ================= MOBILE CONTROLS ================= -->
+        <div class="mobile-controls" id="mobileControls" hidden aria-label="Touch controls">
+          <div class="mobile-cluster mobile-cluster--move">
+            <button class="touch-button" id="leftControl" type="button" aria-label="Move left">
+              <img id="leftControlIcon" alt="" draggable="false">
+            </button>
+            <button class="touch-button" id="rightControl" type="button" aria-label="Move right">
+              <img id="rightControlIcon" alt="" draggable="false">
+            </button>
+          </div>
+
+          <div class="mobile-cluster mobile-cluster--action">
+            <button class="touch-button touch-button--jump" id="jumpControl" type="button" aria-label="Jump">
+              <img id="jumpControlIcon" alt="" draggable="false">
+            </button>
+            <button class="touch-button touch-button--fire" id="fireControl" type="button" aria-label="Shoot seed">
+              <img id="fireControlIcon" alt="" draggable="false">
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <p class="controls-text">SPACE / ARROWS / F / X / TAP BUTTONS</p>
+  </main>
+
+  <!-- ================= ROTATE DEVICE (portrait phone) ================= -->
+  <div class="rotate-screen" id="rotateScreen" aria-hidden="true">
+    <div class="rotate-card">
+      <div class="rotate-icon" aria-hidden="true"></div>
+      <h2 class="rotate-title">ROTATE YOUR DEVICE</h2>
+      <p class="rotate-subtitle">Please turn your phone sideways to play.</p>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
