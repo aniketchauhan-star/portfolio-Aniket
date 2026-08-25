@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { profile, primaryContactHref } from "@/data/profile";
-import { NAV_ITEMS } from "./nav-items";
+import { NAV_ITEMS, MOBILE_NAV_ITEMS } from "./nav-items";
 import { scrollToId, scrollToTop } from "./SmoothScroll";
 import { MobileMenu } from "./MobileMenu";
 import { cn } from "@/lib/utils";
@@ -28,9 +28,13 @@ export function Navbar() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  /* Reflect the section currently owning the viewport. */
+  /* Reflect the section currently owning the viewport.
+     Watches the union of both menus, not just the desktop four — the mobile
+     overlay marks the current section and carries every section on the page. */
   useEffect(() => {
-    const ids = NAV_ITEMS.map((i) => i.id);
+    const ids = Array.from(
+      new Set([...NAV_ITEMS, ...MOBILE_NAV_ITEMS].map((i) => i.id)),
+    );
     const els = ids
       .map((id) => document.getElementById(id))
       .filter((el): el is HTMLElement => Boolean(el));
@@ -50,19 +54,21 @@ export function Navbar() {
 
   return (
     <>
+      {/* The page draws under the Dynamic Island / notch, so the bar pads
+          itself below it rather than sitting behind it. */}
       <header
         className={cn(
-          "fixed inset-x-0 top-0 z-[100] transition-colors duration-700",
+          "fixed inset-x-0 top-0 z-[100] pt-[var(--safe-t)] transition-colors duration-700",
         )}
       >
-        <div className="shell flex items-center justify-between py-4 lg:py-5">
+        <div className="shell flex items-center justify-between py-3 lg:py-5">
           {/* Monogram --------------------------------------------------- */}
           <button
             onClick={scrollToTop}
             aria-label="Back to top"
             data-cursor="link"
             className={cn(
-              "group relative flex h-10 w-10 items-center justify-center rounded-full transition-all duration-700",
+              "group relative flex h-11 w-11 items-center justify-center rounded-full transition-all duration-700",
               condensed ? "glass" : "border border-transparent",
             )}
           >
@@ -116,7 +122,7 @@ export function Navbar() {
                 : { target: "_blank", rel: "noopener noreferrer" })}
               data-cursor="link"
               className={cn(
-                "group hidden items-center gap-2 rounded-full px-5 py-2.5 transition-all duration-700 sm:flex",
+                "group hidden min-h-[44px] items-center gap-2 rounded-full px-5 transition-all duration-700 sm:flex",
                 condensed
                   ? "glass"
                   : "border border-[var(--color-line-soft)] backdrop-blur-md",
@@ -134,15 +140,23 @@ export function Navbar() {
               onClick={() => setMenuOpen(true)}
               aria-label="Open menu"
               aria-expanded={menuOpen}
-              className="glass flex h-10 items-center rounded-full px-4 lg:hidden"
+              className="glass flex h-11 items-center gap-2.5 rounded-full pr-4 pl-3.5 lg:hidden"
             >
+              <span aria-hidden className="flex flex-col gap-[3px]">
+                <span className="block h-px w-3.5 bg-[var(--color-ink)]" />
+                <span className="block h-px w-3.5 bg-[var(--color-ink)]" />
+              </span>
               <span className="label label-bright">MENU</span>
             </button>
           </div>
         </div>
       </header>
 
-      <MobileMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
+      <MobileMenu
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        active={active}
+      />
     </>
   );
 }

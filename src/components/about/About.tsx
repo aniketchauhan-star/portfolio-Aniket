@@ -78,7 +78,7 @@ export function About() {
             <Stagger
               disabled={reduced}
               stagger={0.06}
-              className="mt-14 grid grid-cols-2 gap-x-8 gap-y-9"
+              className="mt-14 grid grid-cols-2 gap-x-5 gap-y-8 sm:gap-x-8 sm:gap-y-9"
             >
               {metadataRows.map((item) => (
                 <div key={item.label} className="flex flex-col gap-2">

@@ -50,22 +50,12 @@ export function GameFrame({
   const shell = useRef<HTMLDivElement>(null);
   const isTouch = useIsTouch();
 
-  const start = useCallback(() => {
-    setStarted(true);
-    // Bring the frame fully into view — the build is 16:9 and taller than
-    // what is left of the overlay once the header and title are on screen.
-    requestAnimationFrame(() =>
-      shell.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
-    );
-  }, []);
-
-  /** Fullscreen is the only comfortable way to play on a phone. */
-  const goFullscreen = useCallback(async () => {
+  /** Enter fullscreen and, where the browser allows it, lock to landscape. */
+  const enterFullscreen = useCallback(async () => {
     const el = shell.current;
-    if (!el) return;
+    if (!el || document.fullscreenElement) return;
     try {
-      if (!document.fullscreenElement) await el.requestFullscreen();
-      else await document.exitFullscreen();
+      await el.requestFullscreen();
     } catch {
       // Safari on iPhone refuses fullscreen on non-video elements; the game
       // still plays inline, so there is nothing to recover from.
@@ -83,6 +73,36 @@ export function GameFrame({
          prompt covers the portrait case. */
     }
   }, []);
+
+  const start = useCallback(() => {
+    setStarted(true);
+
+    // Every build here is a landscape game. On a phone, playing it in a
+    // letterboxed strip inside a scrolling overlay is not really playing it —
+    // so the same tap that starts the build also asks for fullscreen. It has
+    // to happen inside this handler: `requestFullscreen` is only granted
+    // during a user gesture, so deferring it to a second tap is the difference
+    // between it working and it being rejected outright.
+    if (isTouch) void enterFullscreen();
+
+    // Bring the frame fully into view — the build is 16:9 and taller than
+    // what is left of the overlay once the header and title are on screen.
+    requestAnimationFrame(() =>
+      shell.current?.scrollIntoView({ behavior: "smooth", block: "center" }),
+    );
+  }, [isTouch, enterFullscreen]);
+
+  const goFullscreen = useCallback(async () => {
+    if (document.fullscreenElement) {
+      try {
+        await document.exitFullscreen();
+      } catch {
+        /* Already left fullscreen by some other route. */
+      }
+      return;
+    }
+    await enterFullscreen();
+  }, [enterFullscreen]);
 
   return (
     <div className="relative">
@@ -136,14 +156,16 @@ export function GameFrame({
                   fill="currentColor"
                 />
               </span>
-              <span className="label label-bright">PLAY IN BROWSER</span>
+              <span className="label label-bright">
+              {isTouch ? "PLAY FULLSCREEN" : "PLAY IN BROWSER"}
+            </span>
             </button>
           </>
         )}
       </div>
 
       {/* Controls sit under the frame so they never cover the game. */}
-      <div className="mx-auto mt-4 flex w-full flex-wrap items-center gap-x-6 gap-y-3"
+      <div className="mx-auto mt-4 flex w-full flex-wrap items-center gap-x-6 gap-y-1"
         style={{ maxWidth: `calc((100svh - 7rem) * ${ratio})` }}
       >
         {started && (

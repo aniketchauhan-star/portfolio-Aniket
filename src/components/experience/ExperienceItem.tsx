@@ -86,8 +86,13 @@ export function ExperienceItem({
         />
       </span>
 
-      {/* Content ------------------------------------------------------ */}
-      <div className="order-3 col-span-2 mt-4 md:order-none md:col-span-1 md:mt-0">
+      {/* Content ------------------------------------------------------
+          On mobile this sits in the SECOND column, not across both. Spanning
+          both put it back at x=0, which is where the luminous rail is drawn —
+          so the timeline line ran straight down through the company name and
+          the body copy. In column two it clears the rail and lines up under
+          the period instead. */}
+      <div className="order-3 col-start-2 mt-4 md:order-none md:col-start-auto md:col-span-1 md:mt-0">
         <div className="flex flex-wrap items-center gap-3">
           <span className="label">{String(index + 1).padStart(2, "0")}</span>
           {entry.location && (

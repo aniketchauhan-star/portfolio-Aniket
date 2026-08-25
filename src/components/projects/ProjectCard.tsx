@@ -145,13 +145,16 @@ export function ProjectCard({ project, index, onOpen }: ProjectCardProps) {
             onOpen(project);
           }
         }}
-        className="edge relative block w-full cursor-pointer overflow-hidden rounded-2xl bg-[#070910] transition-colors duration-700 will-change-transform group-hover:border-[color-mix(in_oklab,var(--color-cyan)_24%,transparent)]"
+        className="edge press-card relative block w-full cursor-pointer overflow-hidden rounded-2xl bg-[#070910] transition-colors duration-700 will-change-transform group-hover:border-[color-mix(in_oklab,var(--color-cyan)_24%,transparent)]"
         style={{ transformStyle: "preserve-3d" }}
       >
         {/* Light catching the top edge on hover */}
+        {/* Hover-only on a desktop; on touch this hairline is the only thing
+            marking the card as a live surface, so `touch-edge-light` rests it
+            at a low opacity instead of at zero. */}
         <span
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 z-20 h-px opacity-0 transition-opacity duration-700 group-hover:opacity-100"
+          className="touch-edge-light pointer-events-none absolute inset-x-0 top-0 z-20 h-px opacity-0 transition-opacity duration-700 group-hover:opacity-100"
           style={{
             background:
               "linear-gradient(90deg,transparent,rgba(108,243,255,0.75),transparent)",
@@ -225,7 +228,7 @@ export function ProjectCard({ project, index, onOpen }: ProjectCardProps) {
                 ))}
               </ul>
             )}
-            <span className="label label-bright inline-flex items-center gap-2 transition-colors duration-500 group-hover:text-[var(--color-cyan)]">
+            <span className="touch-affordance label label-bright inline-flex items-center gap-2 transition-colors duration-500 group-hover:text-[var(--color-cyan)]">
               {project.playUrl ? "PLAY PROJECT" : "VIEW PROJECT"}
               <span className="transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-1">
                 →

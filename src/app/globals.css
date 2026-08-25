@@ -50,6 +50,18 @@
     box-sizing: border-box;
   }
 
+  /* The viewport is declared `viewportFit: cover`, so the page draws underneath
+     the notch, the Dynamic Island and the home indicator. Every horizontal
+     gutter and every element pinned to a screen edge is therefore expressed in
+     terms of these, not of `--spacing-gutter` alone. On a device with no
+     cutouts `env()` resolves to 0 and nothing changes. */
+  :root {
+    --gutter-l: calc(var(--spacing-gutter) + env(safe-area-inset-left, 0px));
+    --gutter-r: calc(var(--spacing-gutter) + env(safe-area-inset-right, 0px));
+    --safe-t: env(safe-area-inset-top, 0px);
+    --safe-b: env(safe-area-inset-bottom, 0px);
+  }
+
   html {
     -webkit-text-size-adjust: 100%;
     scroll-behavior: auto;
@@ -116,6 +128,18 @@
     padding: 0;
   }
 
+  /* iOS paints a grey box over anything tappable. The site has its own press
+     feedback (below), so the default flash is only noise. */
+  a,
+  button,
+  [role="button"],
+  summary,
+  input,
+  textarea,
+  select {
+    -webkit-tap-highlight-color: transparent;
+  }
+
   ::selection {
     background: color-mix(in oklab, var(--color-cyan) 28%, transparent);
     color: var(--color-ink);
@@ -151,7 +175,8 @@
     width: 100%;
     max-width: 1560px;
     margin-inline: auto;
-    padding-inline: var(--spacing-gutter);
+    padding-left: var(--gutter-l);
+    padding-right: var(--gutter-r);
   }
 
   /* Small monospace technical label — used for every section number,
@@ -258,12 +283,21 @@
     gap: 1rem;
     overflow-x: auto;
     scroll-snap-type: x mandatory;
-    margin-inline: calc(var(--spacing-gutter) * -1);
-    padding-inline: var(--spacing-gutter);
+    /* Bleeds past `.shell`'s padding to the true screen edge, so the rail has
+       to cancel the safe-area inset as well as the gutter. */
+    margin-left: calc(var(--gutter-l) * -1);
+    margin-right: calc(var(--gutter-r) * -1);
+    padding-left: var(--gutter-l);
+    padding-right: var(--gutter-r);
     /* Without this the snap port ignores the padding and the first card
        immediately snaps flush to the screen edge. */
-    scroll-padding-inline: var(--spacing-gutter);
+    scroll-padding-left: var(--gutter-l);
+    scroll-padding-right: var(--gutter-r);
     padding-bottom: 0.5rem;
+    /* A rail is the one place a horizontal drag is meant to win, but it must
+       not hand the gesture on to the page or to Safari's back-swipe. */
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Clipping mask used by every text reveal */
@@ -452,6 +486,101 @@
   .hero-subtitle {
     font-size: 0.72rem;
     letter-spacing: 0.14em;
+  }
+}
+
+/* ==========================================================================
+   TOUCH INPUT
+   --------------------------------------------------------------------------
+   Almost every affordance on this site is written as `:hover` — the edge light
+   on a project card, the arrow that slides, the label that brightens. A phone
+   fires none of them, so on touch those cards read as flat panels with no sign
+   that anything is tappable, and a tap gives no feedback at all until the
+   overlay opens.
+
+   This block is the touch reading of that same language: the resting state
+   carries a little of what hover used to reveal, and the *press* — not the
+   hover — is what lights it up.
+   ========================================================================== */
+
+@media (hover: none) {
+  /* Resting state: enough accent to read as interactive, well short of the
+     full hover state, which would leave nothing for the press to do. */
+  [data-cursor="view"] .touch-affordance,
+  .touch-affordance {
+    color: var(--color-cyan);
+  }
+
+  /* The hairline across the top of a project card is hover-only on a desktop.
+     On touch it is the only thing marking the card as a live surface, so it
+     rests at a low opacity instead of at zero. */
+  .touch-edge-light {
+    opacity: 0.42 !important;
+  }
+
+  /* One press state for every tappable surface. Scale, not colour: it survives
+     on top of the glass, the cards and the bare labels alike. */
+  a:active,
+  button:active,
+  [role="button"]:active {
+    transform: scale(0.985);
+  }
+
+  /* A card is large enough that scaling the whole thing reads as a wobble;
+     it dims and takes accent on its border instead. */
+  .press-card:active {
+    transform: none;
+    border-color: color-mix(in oklab, var(--color-cyan) 34%, transparent);
+    background-color: #090c15;
+  }
+
+  /* Motion-safe: the press must feel immediate, so it is a transition on the
+     way out only, never a delay on the way in. */
+  a,
+  button,
+  [role="button"] {
+    transition-property: transform, border-color, background-color, color;
+    transition-duration: 260ms;
+    transition-timing-function: var(--ease-out-quart);
+  }
+}
+
+@media (hover: none) and (prefers-reduced-motion: reduce) {
+  a:active,
+  button:active,
+  [role="button"]:active {
+    transform: none;
+  }
+}
+
+/* ==========================================================================
+   PHONE-SIZED LAYOUT
+   --------------------------------------------------------------------------
+   Sizing that is about the device rather than about one component. Everything
+   here is a floor, not a redesign — the layouts themselves are already single
+   column below `lg`.
+   ========================================================================== */
+
+@media (max-width: 767px) {
+  /* 10px uppercase mono at 0.22em tracking is legible on a desktop at arm's
+     length and marginal on a phone at 30cm. The labels are the site's entire
+     navigational scaffolding — section numbers, metadata keys, every readout —
+     so they get one step up and a little tracking back. */
+  .label {
+    font-size: 0.6875rem;
+    letter-spacing: 0.18em;
+  }
+
+  /* Body copy on a phone is read in a single narrow column with no
+     surrounding page to rest against; the desktop leading is too tight. */
+  .body-lg {
+    font-size: 1rem;
+    line-height: 1.72;
+  }
+
+  .body-base {
+    font-size: 0.9375rem;
+    line-height: 1.75;
   }
 }
 

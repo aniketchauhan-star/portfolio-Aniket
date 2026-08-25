@@ -7,6 +7,7 @@ import type { Project } from "@/data/profile";
 import { registerGsap, gsap, EASE } from "@/lib/animations";
 import { useIsomorphicLayoutEffect } from "@/hooks/useIsomorphicLayoutEffect";
 import { setScrollLocked } from "@/components/layout/SmoothScroll";
+import { useOccludeScene } from "@/lib/scene-visibility";
 import { PlaceholderChip } from "@/components/ui/PlaceholderChip";
 import { ProjectVisual } from "./ProjectVisual";
 import { GameFrame } from "./GameFrame";
@@ -37,10 +38,15 @@ export function ProjectModal({
   const closeBtn = useRef<HTMLButtonElement>(null);
   const open = Boolean(project);
 
+  // The overlay covers the canvas completely — and this is where the playable
+  // builds run, so on a phone the scene would otherwise be competing with a
+  // game for the same GPU.
+  useOccludeScene(open, "project-modal");
+
   /* Scroll lock, focus, Escape, focus trap -------------------------------- */
   useEffect(() => {
     if (!open) return;
-    setScrollLocked(true);
+    setScrollLocked(true, "project-modal");
     closeBtn.current?.focus();
 
     const onKey = (e: KeyboardEvent) => {
@@ -67,7 +73,7 @@ export function ProjectModal({
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
-      setScrollLocked(false);
+      setScrollLocked(false, "project-modal");
     };
   }, [open, onClose]);
 
@@ -148,8 +154,8 @@ export function ProjectModal({
       className="fixed inset-0 z-[150] overflow-y-auto overscroll-contain bg-[rgba(3,4,7,0.97)] backdrop-blur-xl"
     >
       {/* Header ---------------------------------------------------------- */}
-      <div className="sticky top-0 z-10 border-b border-[var(--color-line-soft)] bg-[rgba(3,4,7,0.72)] backdrop-blur-xl">
-        <div className="shell flex items-center justify-between py-4">
+      <div className="sticky top-0 z-10 border-b border-[var(--color-line-soft)] bg-[rgba(3,4,7,0.72)] pt-[var(--safe-t)] backdrop-blur-xl">
+        <div className="shell flex items-center justify-between py-3 md:py-4">
           <span className="js-modal-num label label-bright">
             PROJECT {num}
           </span>
@@ -165,7 +171,7 @@ export function ProjectModal({
         </div>
       </div>
 
-      <div className="shell pt-14 pb-28">
+      <div className="shell pt-10 pb-[calc(7rem+var(--safe-b))] md:pt-14">
         {/* Title ------------------------------------------------------- */}
         <div className="js-modal-reveal flex flex-wrap items-center gap-3">
           <span className="label label-bright">{project.category}</span>
@@ -178,7 +184,7 @@ export function ProjectModal({
         </h2>
 
         {/* Hero visual — or the playable build, when there is one -------- */}
-        <div className="js-modal-reveal mt-12">
+        <div className="js-modal-reveal mt-9 md:mt-12">
           {project.playUrl ? (
             <GameFrame
               src={project.playUrl}
@@ -195,7 +201,7 @@ export function ProjectModal({
         </div>
 
         {/* Facts + description ------------------------------------------ */}
-        <div className="mt-16 grid gap-14 lg:grid-cols-12 lg:gap-12">
+        <div className="mt-12 grid gap-12 md:mt-16 md:gap-14 lg:grid-cols-12 lg:gap-12">
           <div className="js-modal-reveal lg:col-span-4">
             <dl className="flex flex-col gap-8">
               {facts.map((f) => (

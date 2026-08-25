@@ -346,7 +346,7 @@ Three things carry that:
   two places where a desktop layout would not survive being squeezed have real
   small-screen counterparts rather than shrunken copies: `SkillsMobile` (a
   thumb-driven snap rail) stands in for the `SkillOrbit`, and `MobileMenu` (a
-  full-screen overlay) stands in for the navigation pill.
+  full-screen index) stands in for the navigation pill.
 - **Short landscape.** A phone on its side is roughly 844×390, so height
   becomes the constraint. Under
   `@media (orientation: landscape) and (max-height: 560px)` the display scale
@@ -362,6 +362,78 @@ keeps its own rotate prompt inside the iframe, and the frame offers
 **Fullscreen** (which requests a landscape lock where the browser allows it).
 That is scoped to the game — the portfolio itself never blocks.
 
+### Designed for touch, not just resized for it
+
+Responding to a viewport width and being usable with a thumb are different
+problems. These are the places where the phone gets its own answer rather than
+a narrower version of the desktop one.
+
+**The safe area is real estate, not padding.** The viewport is declared
+`viewportFit: cover`, so the page genuinely draws underneath the Dynamic
+Island and the home indicator. `globals.css` therefore defines `--gutter-l`,
+`--gutter-r`, `--safe-t` and `--safe-b` from `env(safe-area-inset-*)`, and
+every horizontal gutter and every element pinned to a screen edge is expressed
+in terms of those. On a device with no cutouts they resolve to `0px` and
+nothing changes. `.rail` has to cancel the inset as well as the gutter in its
+negative margin, since it bleeds to the true screen edge.
+
+**Affordances that survive having no hover.** Nearly every signal on the
+desktop site is a `:hover` — the hairline across the top of a project card,
+the arrow that slides, the label that brightens. A phone fires none of them, so
+those cards read as flat panels. The `@media (hover: none)` block in
+`globals.css` is the touch reading of the same language: the resting state
+carries some of what hover used to reveal (`.touch-edge-light`,
+`.touch-affordance`), and the *press* is what completes it — a small scale for
+controls, a border-and-fill shift for cards (`.press-card`). The iOS grey tap
+flash is turned off, because there is now something better in its place.
+
+**Scroll locking that works on iOS.** `overflow: hidden` on the root element is
+enough on a desktop and is simply ignored by Safari on iOS, so the page behind
+an open overlay kept scrolling with the drag. `setScrollLocked` in
+`SmoothScroll.tsx` takes the body out of flow at a negative offset equal to the
+current scroll and restores that scroll on release. Locks are held by *name*
+(`"preloader"`, `"mobile-menu"`, `"project-modal"`): the preloader releases its
+own lock twice by design, and a counter would let that duplicate release unlock
+the page underneath an overlay that is still open.
+
+**The mobile menu is the whole index.** The desktop pill has four slots; the
+overlay is a full screen and carries all seven sections in page order, marks
+the one you are in, scrolls if a landscape phone cannot fit them, and holds the
+primary contact control — which is hidden from the bar below `sm`, so without
+it the narrowest phones had no contact affordance in the navigation at all.
+
+**The skills rail says where you are.** A horizontal scroller inside a vertical
+page is the one component that can be missed entirely on a phone; with the
+cards clipped at the screen edge, three of five disciplines simply never get
+read. The rail carries a `01 / 04` counter and a row of markers that track the
+snap position and are tappable. The markers run edge to edge with no gap
+between them — at four disciplines on a 320px screen each is only ~28px wide,
+and any spacing *between* them would be a dead strip a thumb can land in.
+
+**The playable builds open fullscreen.** Every build here is a landscape game,
+and playing one in a letterboxed strip inside a scrolling overlay is not really
+playing it. On touch the same tap that starts the build also requests
+fullscreen — it has to happen in that handler, because `requestFullscreen` is
+only granted during a user gesture. Safari on iPhone refuses fullscreen on
+non-video elements; the game plays inline there and keeps its own rotate
+prompt.
+
+**The scene stops when nobody can see it.** The canvas is fixed behind the
+whole document and renders continuously, which is right while the page is being
+read and pure waste the moment something covers it. `lib/scene-visibility.ts`
+holds named occluders — the project overlay, the mobile menu, a backgrounded
+tab — and the canvas switches to `frameloop="demand"` while any are held. It
+matters most on a phone: the project overlay is where the playable builds run,
+so the worst case was a phone GPU driving a game *and* an invisible particle
+field, two rings and a lit robot. Every value in the rig is damped toward a
+target rather than integrated from the last frame, so resuming just carries on
+from wherever it parked.
+
+**Pointer parallax is a mouse behaviour.** `pointermove` also fires for a
+finger, once per frame for the whole length of a scroll drag, so the camera and
+the robot were being dragged sideways by the same gesture that scrolls the
+page. The listener is now attached only under `(pointer: fine)`.
+
 ### Accessibility & fallbacks
 
 - `prefers-reduced-motion`: smooth scrolling is skipped, the custom cursor is
@@ -370,8 +442,11 @@ That is scoped to the game — the portfolio itself never blocks.
 - No WebGL: a pure-CSS reading of the robot (`StaticFallback`) takes over —
   same composition, same palette, no canvas.
 - Semantic landmarks, a skip link, visible focus states, keyboard-operable
-  project cards, Escape-to-close and focus-trapped overlays, and ≥44px touch
-  targets throughout.
+  project cards, Escape-to-close and focus-trapped overlays, and 44px touch
+  targets. The one deliberate exception is the skills rail's position markers:
+  four of them cannot each be 44px wide on a 320px screen, so they are 44px
+  *tall* and contiguous, which is the trade every segmented pagination control
+  makes.
 - The custom cursor (desktop, non-reduced-motion only) reads `data-cursor` on
   the nearest ancestor: `view` over project cards, `open` over external links,
   `drag` over the scrollable skills rail, `link` elsewhere.

@@ -106,7 +106,7 @@ export function HeroMeta({ play }: { play: boolean }) {
       disabled={reduced}
       delay={1.35}
       distance={12}
-      className="shell flex w-full flex-wrap items-center justify-between gap-x-8 gap-y-3 pb-8 md:pb-10"
+      className="shell flex w-full flex-wrap items-center justify-between gap-x-8 gap-y-3 pb-[calc(2rem+var(--safe-b))] md:pb-[calc(2.5rem+var(--safe-b))]"
     >
       <div className="flex items-center gap-6">
         <span className="label label-bright">

@@ -49,7 +49,7 @@ export function Hero() {
       id="top"
       chapter="hero"
       label="Introduction"
-      className="flex min-h-[100svh] flex-col justify-between overflow-hidden pt-24 md:pt-32 [@media(orientation:landscape)_and_(max-height:560px)]:pt-16"
+      className="flex min-h-[100svh] flex-col justify-between overflow-hidden pt-[calc(6rem+var(--safe-t))] md:pt-[calc(8rem+var(--safe-t))] [@media(orientation:landscape)_and_(max-height:560px)]:pt-[calc(4rem+var(--safe-t))]"
     >
       <div
         aria-hidden
@@ -64,8 +64,11 @@ export function Hero() {
         </div>
       </div>
 
-      <HeroMeta play={play} />
+      {/* Order matters: the phone reading of the indicator is in flow and has
+          to sit above the metadata strip. The desktop reading is absolute and
+          is unaffected by where it appears in the DOM. */}
       <ScrollIndicator />
+      <HeroMeta play={play} />
     </Section>
   );
 }

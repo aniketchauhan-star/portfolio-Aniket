@@ -32,7 +32,7 @@ export function Preloader({ onDone }: { onDone: () => void }) {
 
   useEffect(() => {
     registerGsap();
-    setScrollLocked(true);
+    setScrollLocked(true, "preloader");
 
     const reduced = window.matchMedia(
       "(prefers-reduced-motion: reduce)",
@@ -44,7 +44,7 @@ export function Preloader({ onDone }: { onDone: () => void }) {
       finished = true;
       window.clearTimeout(failSafe);
       sceneState.revealed = true;
-      setScrollLocked(false);
+      setScrollLocked(false, "preloader");
       onDone();
     };
 
@@ -84,7 +84,7 @@ export function Preloader({ onDone }: { onDone: () => void }) {
       return () => {
         window.clearTimeout(t);
         window.clearTimeout(failSafe);
-        setScrollLocked(false);
+        setScrollLocked(false, "preloader");
       };
     }
 
@@ -132,7 +132,7 @@ export function Preloader({ onDone }: { onDone: () => void }) {
     return () => {
       ctx.revert();
       window.clearTimeout(failSafe);
-      setScrollLocked(false);
+      setScrollLocked(false, "preloader");
     };
   }, [onDone]);
 

@@ -8,7 +8,7 @@ export function Footer() {
 
   return (
     <footer className="content-layer relative border-t border-[var(--color-line-soft)]">
-      <div className="shell flex flex-col gap-10 py-12 md:flex-row md:items-end md:justify-between md:py-14">
+      <div className="shell flex flex-col gap-10 pt-12 pb-[calc(3rem+var(--safe-b))] md:flex-row md:items-end md:justify-between md:pt-14 md:pb-[calc(3.5rem+var(--safe-b))]">
         <div>
           <p className="font-display text-[1.4rem] leading-none tracking-[-0.03em]">
             {profile.name.toUpperCase()}

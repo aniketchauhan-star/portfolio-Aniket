@@ -11,6 +11,7 @@ import { CoreRig } from "./CoreRig";
 import { Robot } from "./Robot";
 import { OrbitalRings } from "./OrbitalRings";
 import { ParticleField } from "./ParticleField";
+import { useSceneOccluded } from "@/lib/scene-visibility";
 import { AdaptivePerformance } from "./AdaptivePerformance";
 import { StaticFallback } from "./StaticFallback";
 
@@ -188,13 +189,40 @@ function useInputBridge() {
     readScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll, { passive: true });
-    window.addEventListener("pointermove", onPointer, { passive: true });
     window.addEventListener("blur", onBlur);
+
+    /**
+     * Pointer parallax is a mouse behaviour and only a mouse behaviour.
+     *
+     * `pointermove` also fires for a finger, once per frame for the whole
+     * length of a scroll drag — so on a phone the camera and the robot were
+     * being dragged sideways by the same gesture that scrolls the page, and
+     * every flick ended with the scene parked wherever the thumb happened to
+     * lift. Touch gets a still camera; the scene still moves, but only with
+     * the scroll.
+     */
+    const fine = window.matchMedia("(pointer: fine)");
+    let listening = false;
+    const syncPointerInput = () => {
+      if (fine.matches === listening) return;
+      listening = fine.matches;
+      if (listening) {
+        window.addEventListener("pointermove", onPointer, { passive: true });
+      } else {
+        window.removeEventListener("pointermove", onPointer);
+        sceneState.pointerX = 0;
+        sceneState.pointerY = 0;
+      }
+    };
+    syncPointerInput();
+    fine.addEventListener("change", syncPointerInput);
+
     return () => {
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
       window.removeEventListener("pointermove", onPointer);
       window.removeEventListener("blur", onBlur);
+      fine.removeEventListener("change", syncPointerInput);
       if (frame) cancelAnimationFrame(frame);
     };
   }, []);
@@ -209,6 +237,8 @@ export default function Scene() {
   const [supported, setSupported] = useState<boolean | null>(null);
   const [reduced, setReduced] = useState(false);
   const mounted = useRef(false);
+  // True while a full-screen overlay covers the canvas, or the tab is hidden.
+  const occluded = useSceneOccluded();
 
   useInputBridge();
 
@@ -252,7 +282,12 @@ export default function Scene() {
   return (
     <div id="scene-root">
       <Canvas
-        frameloop={reduced ? "demand" : "always"}
+        // `demand` with nothing calling `invalidate` is a full stop, which is
+        // exactly right for a scene nobody can see. Every value in the rig is
+        // damped toward a target rather than integrated from the last frame,
+        // so resuming just carries on from wherever it was parked — there is
+        // no accumulated drift to correct and nothing jumps.
+        frameloop={reduced || occluded ? "demand" : "always"}
         dpr={quality.dpr}
         gl={{
           antialias: quality.tier !== "low",
@@ -287,7 +322,7 @@ export default function Scene() {
             }}
           />
           <AdaptiveDpr pixelated={false} />
-          {reduced && <DemandDriver />}
+          {reduced && !occluded && <DemandDriver />}
         </Suspense>
       </Canvas>
     </div>
