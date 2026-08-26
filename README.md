@@ -65,7 +65,7 @@ Still unknown, and therefore blank or clearly marked:
 
 | | |
 | --- | --- |
-| `projects` | only `Platform Adventure` is listed — a real, playable build. Append more entries as they are ready |
+| `projects` | four real, playable builds are listed. Append more entries as they are ready |
 | `certifications` | none listed, so the section hides itself |
 | `availability` | not stated, so the hero `STATUS` row stays hidden |
 
@@ -133,9 +133,9 @@ canonical URL, OpenGraph tags, `robots.txt` and `sitemap.xml`.
 
 ## Playable projects
 
-Three builds ship inside this site — `Platform Adventure` (a canvas
-platformer) and two interactive 3D flipbooks, each with games embedded in its
-pages. Every one is a self-contained folder:
+Four builds ship inside this site — `Platform Adventure` (a canvas platformer)
+and three interactive 3D flipbooks, each with games embedded in its pages.
+Every one is a self-contained folder:
 
 ```
 public/games/platform-adventure/
@@ -151,12 +151,26 @@ public/games/great-fish-rescue/
   sfx-data.js  assets/     sfx/     tools/
   LBD 1/       ← the fish-sorting game  (page 7)
   LBD 2/       ← the fish-counting game (page 10)
+
+public/games/byte-saves-the-day/
+  index.html   script.js   styles.css   preload.js
+  sfx-data.js  asset-manifest.json      assets/   sfx/
+  LBD 1/                   ← Byte's Energy Hunt        (after story page 3)
+  LBD 2/Right-and-Left/    ← Right & Left, the parcels (after story page 4)
 ```
 
 The flipbooks reference their embedded games by relative path, so the folder
 drops in as-is. `great-fish-rescue/tools/gen-title-card.mjs` is kept because
 `script.js` points at it: each game's title card is a render of that game's own
 start screen, and it has to be regenerated whenever a title screen changes.
+
+`byte-saves-the-day` arrived with its own `.vercelignore` naming exactly what
+ships, and that is what was copied: its `tools/`, `tests/`, `quarantine/` (46MB
+of pre-optimisation source media), Playwright config and development reports
+are all left behind in the source folder. Its `script.js` mentions `tools/`
+only in comments, so unlike `great-fish-rescue` nothing there is needed at
+runtime. Two things had to be corrected on the way in — see the note on file
+names below.
 
 and the project entry points at it:
 
@@ -185,11 +199,26 @@ The card marks these projects with a `PLAYABLE` chip and reads
 `public/games/<name>/` and set `playUrl` on its project entry. Nothing else is
 needed.
 
-One caveat on file names: **no commas**. Next.js serves `public/` files itself
-and 404s on a literal `,` in the path, which browsers do not percent-encode —
-so a build that worked over Live Server can lose exactly one asset here. Spaces,
-`!`, `(`, `)` and non-ASCII characters are all fine. `Power Up, Bots!` had one
-voice-over clip caught by this; it was renamed.
+One caveat on file names: **avoid commas**. `Power Up, Bots!` lost exactly one
+voice-over clip to a literal `,` in a path when it was first added, and it was
+renamed. Spaces, `!`, `(`, `)` and non-ASCII characters have always been fine.
+
+Re-testing this on Next.js 16, a literal comma now serves correctly under both
+`next dev` and `next start`, so the original failure looks like it has since
+been fixed upstream. `byte-saves-the-day` was still brought in comma-free —
+two voice-over clips named `And just like that, Byte Saved the Day (1).ogg`
+were renamed to use ` - `, and the one runtime reference plus three
+`asset-manifest.json` entries were updated to match. That is precaution, not a
+reproduced bug: the deployment target is Vercel's static edge rather than
+`next start`, which is not what was tested here.
+
+The same pass removed 26 entries from that build's generated
+`asset-manifest.json` — Playwright screenshots and metrics JSON that the
+manifest generator had swept up, all of which are development-only and were
+correctly not copied. They sat in the non-blocking `background` stage so they
+would not have held up the start control, but they would have been 26 failed
+requests during the idle warm-up. The stage tallies and `totalBytes` were
+recomputed so the preloader's progress still reaches 100%.
 
 ## Adding projects
 

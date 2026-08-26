@@ -316,6 +316,28 @@ export const profile = {
         touch: "TAP THE CORNER ARROWS · LANDSCAPE",
       },
     },
+    {
+      id: "byte-saves-the-day",
+      title: "Byte Saves the Day",
+      category: "INTERACTIVE STORYBOOK",
+      year: "2026",
+      role: "Design & Development",
+      description:
+        "The third flipbook, and the one that finally solved loading. A hardcover book with real thickness and a spine sits angled on the page; tapping PLAY swings the cover open onto four full-bleed video pages. Two games are bound into the story rather than bolted after it — Byte's Energy Hunt after page three, Right & Left after page four — each opening framed inside the leaf it was printed on, expanding to fullscreen when tapped, then handing the book back and turning the page itself once the closing narration has played out. Fifty-five megabytes of video, art and voice-over sit behind that, so the start control waits on ten files and under a megabyte; everything else arrives during the reading.",
+      technologies: [
+        "CSS 3D Transforms",
+        "JavaScript",
+        "WebM Video",
+        "Web Audio",
+      ],
+      image: "/projects/byte-saves-the-day.webp",
+      /** Playable build lives in /public/games/byte-saves-the-day. */
+      playUrl: "/games/byte-saves-the-day/index.html",
+      playControls: {
+        pointer: "CLICK THE CORNER ARROWS · CLICK THE PAGE",
+        touch: "TAP THE CORNER ARROWS · LANDSCAPE",
+      },
+    },
   ] as Project[],
 
   /* --- Experience --------------------------------------------------------- */
