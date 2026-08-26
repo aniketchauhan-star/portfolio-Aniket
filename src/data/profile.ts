@@ -338,6 +338,28 @@ export const profile = {
         touch: "TAP THE CORNER ARROWS · LANDSCAPE",
       },
     },
+    {
+      id: "royal-bloom-fest",
+      title: "The Royal Bloom Fest",
+      category: "INTERACTIVE STORYBOOK",
+      year: "2026",
+      role: "Design & Development",
+      description:
+        "The fourth flipbook, and the one where the game stops being a page you wait for. Five video pages carry Aru and Pari to the palace festival; the fifth leaf turns onto Royal Bloom, a weighing game about heavier and lighter, printed at page size as though it had always been part of the book. Tapping it expands to true fullscreen — it has to live in its own layer outside the book, because a CSS 3D transform traps the fixed positioning fullscreen needs — and finishing it folds the game away and turns to page six on its own. The build boots that game silent in a hidden frame while you are still on page one, so arriving at it is a reveal rather than a download, and the loading bar reads from a generated table of real file sizes instead of guessing.",
+      technologies: [
+        "CSS 3D Transforms",
+        "JavaScript",
+        "WebM Video",
+        "Web Audio",
+      ],
+      image: "/projects/royal-bloom-fest.webp",
+      /** Playable build lives in /public/games/royal-bloom-fest. */
+      playUrl: "/games/royal-bloom-fest/index.html",
+      playControls: {
+        pointer: "CLICK THE CORNER ARROWS · CLICK THE PAGE",
+        touch: "TAP THE CORNER ARROWS · LANDSCAPE",
+      },
+    },
   ] as Project[],
 
   /* --- Experience --------------------------------------------------------- */
