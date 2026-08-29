@@ -235,8 +235,40 @@ width is capped from `100svh` so the whole game is on screen even on a
 landscape phone. The build itself is a landscape game and keeps its own rotate
 prompt; the surrounding page does not require rotating.
 
-The card marks these projects with a `PLAYABLE` chip and reads
-`PLAY PROJECT` instead of `VIEW PROJECT`.
+The tile marks these projects with a `PLAYABLE` chip and reads `PLAY` instead
+of `VIEW`.
+
+### Selected work is a grid, not a stack
+
+The section is a grid of poster tiles that open the full-screen overlay — two
+columns on a phone, three from `lg`. It used to be one full-width card per
+project, stacked vertically, and with six projects that had become **5.4
+screens of scrolling on a phone and 7.5 on a desktop — around half the entire
+page for one section**, growing by roughly another screen with every project
+added. The grid holds the same six in about a screen and a half, and a seventh
+costs half a row rather than a full screen.
+
+What was dropped from the page, deliberately: the card's description and its
+technology list. Neither is what a visitor uses to *choose* a project — the
+poster and the title are — and both are still one tap away in the overlay, in
+full rather than clamped to three lines.
+
+Two details in `ProjectCard` are worth keeping if you restyle it:
+
+- **The number and the `PLAYABLE` chip sit in the scrim along the bottom edge,
+  not on the open poster.** Every cover here is a bright, busy title card: at
+  the top the number vanished into the artwork and the chip landed on the
+  title. The bottom band is the one part of the image that is dark by
+  construction, and the part the artwork uses least.
+- **`ProjectVisual` takes a `sizes` prop.** Its default describes a full-width
+  card, which is right for the overlay and about three times too large for a
+  tile; the grid passes its own value so a 170px thumbnail does not download a
+  hero-sized image.
+
+The scene's `projectProgress` now comes from one ScrollTrigger across the whole
+grid rather than a trigger per card — two tiles share a row, so neither "owns"
+the viewport. Which project is *active* is driven by pointer and focus on the
+tiles themselves, and cleared on the way out.
 
 **To add another playable build:** drop a self-contained folder in
 `public/games/<name>/` and set `playUrl` on its project entry. Nothing else is

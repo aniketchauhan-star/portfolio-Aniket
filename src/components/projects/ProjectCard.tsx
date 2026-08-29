@@ -1,11 +1,6 @@
 "use client";
 
-import { useRef } from "react";
 import type { Project } from "@/data/profile";
-import { useIsomorphicLayoutEffect } from "@/hooks/useIsomorphicLayoutEffect";
-import { registerGsap, gsap, EASE } from "@/lib/animations";
-import { useReducedMotion } from "@/hooks/useReducedMotion";
-import { useIsTouch } from "@/hooks/useMediaQuery";
 import { PlaceholderChip } from "@/components/ui/PlaceholderChip";
 import { ProjectVisual } from "./ProjectVisual";
 import { sceneState } from "@/lib/scene-state";
@@ -18,118 +13,35 @@ export interface ProjectCardProps {
 }
 
 /**
- * A floating digital display. Two independent motion layers:
+ * One tile in the work grid.
  *
- *  · scroll — the card rises while its image settles from 1.1 to 1
- *  · pointer — a ≤3° tilt with a little image parallax
+ * The section used to be six full-width cards stacked vertically — 5.4 screens
+ * of scrolling on a phone and 7.5 on a desktop, about half the entire page for
+ * one section, growing by another screen with every project added. A tile is
+ * the same card reduced to what a visitor actually needs in order to *choose*:
+ * the poster, the number, the title and whether it is playable. Everything else
+ * — the description, the case study, the build itself — already lives in the
+ * overlay a tap away, so nothing was lost by taking it off the page.
  *
- * Both are disabled for reduced motion, and the tilt is skipped on touch.
+ * The whole tile is one control. There is no separate "view" link to hit,
+ * which is what makes it work with a thumb.
  */
 export function ProjectCard({ project, index, onOpen }: ProjectCardProps) {
-  const root = useRef<HTMLElement>(null);
-  const media = useRef<HTMLDivElement>(null);
-  const inner = useRef<HTMLDivElement>(null);
-  const reduced = useReducedMotion();
-  const isTouch = useIsTouch();
   const num = pad2(index + 1);
 
-  /* Scroll choreography ---------------------------------------------------- */
-  useIsomorphicLayoutEffect(() => {
-    const el = root.current;
-    const img = media.current;
-    if (!el || !img) return;
-    registerGsap();
-
-    const ctx = gsap.context(() => {
-      if (reduced) return;
-
-      gsap.fromTo(
-        el,
-        { y: 64, opacity: 0 },
-        {
-          y: 0,
-          opacity: 1,
-          duration: 1.3,
-          ease: EASE.out,
-          scrollTrigger: { trigger: el, start: "top 88%", once: true },
-        },
-      );
-
-      gsap.fromTo(
-        img,
-        { scale: 1.1 },
-        {
-          scale: 1,
-          ease: "none",
-          scrollTrigger: {
-            trigger: el,
-            start: "top 92%",
-            end: "top 38%",
-            scrub: 0.8,
-          },
-        },
-      );
-
-      // Tell the WebGL layer which project owns the viewport, so the core can
-      // shift orientation between projects instead of being reloaded.
-      ScrollTriggerCreate(el, index);
-    }, root);
-
-    return () => ctx.revert();
-  }, [reduced, index]);
-
-  /* Pointer tilt ----------------------------------------------------------- */
-  useIsomorphicLayoutEffect(() => {
-    const el = root.current;
-    const box = inner.current;
-    const img = media.current;
-    if (!el || !box || !img || reduced || isTouch) return;
-    registerGsap();
-
-    // GSAP's CSS plugin names these `rotationX` / `rotationY`; the `rotateX`
-    // alias cannot be reset cleanly and warns on every context revert.
-    gsap.set(box, { transformPerspective: 1200, rotationX: 0, rotationY: 0 });
-    const rx = gsap.quickTo(box, "rotationX", { duration: 0.8, ease: "power3.out" });
-    const ry = gsap.quickTo(box, "rotationY", { duration: 0.8, ease: "power3.out" });
-    const ix = gsap.quickTo(img, "xPercent", { duration: 1, ease: "power3.out" });
-    const iy = gsap.quickTo(img, "yPercent", { duration: 1, ease: "power3.out" });
-
-    const onMove = (e: MouseEvent) => {
-      const r = el.getBoundingClientRect();
-      const dx = (e.clientX - (r.left + r.width / 2)) / (r.width / 2);
-      const dy = (e.clientY - (r.top + r.height / 2)) / (r.height / 2);
-      rx(-dy * 2.4);
-      ry(dx * 3);
-      ix(dx * -1.6);
-      iy(dy * -1.6);
-    };
-    const onLeave = () => {
-      rx(0);
-      ry(0);
-      ix(0);
-      iy(0);
-    };
-
-    el.addEventListener("mousemove", onMove);
-    el.addEventListener("mouseleave", onLeave);
-    return () => {
-      el.removeEventListener("mousemove", onMove);
-      el.removeEventListener("mouseleave", onLeave);
-      gsap.killTweensOf([box, img]);
-    };
-  }, [reduced, isTouch]);
+  /* Tell the WebGL layer which project the visitor is considering, so the
+     robot shifts posture between them. Cleared on the way out so the scene
+     falls back to the section's own base posture. */
+  const markActive = () => {
+    sceneState.activeProject = index;
+  };
+  const clearActive = () => {
+    sceneState.activeProject = -1;
+  };
 
   return (
-    <article
-      ref={root}
-      className={cn(
-        "group relative w-full",
-        index % 2 === 1 ? "lg:ml-auto" : "lg:mr-auto",
-      )}
-      style={{ perspective: "1200px" }}
-    >
+    <article className="group relative">
       <div
-        ref={inner}
         role="button"
         tabIndex={0}
         data-cursor="view"
@@ -145,13 +57,19 @@ export function ProjectCard({ project, index, onOpen }: ProjectCardProps) {
             onOpen(project);
           }
         }}
-        className="edge press-card relative block w-full cursor-pointer overflow-hidden rounded-2xl bg-[#070910] transition-colors duration-700 will-change-transform group-hover:border-[color-mix(in_oklab,var(--color-cyan)_24%,transparent)]"
-        style={{ transformStyle: "preserve-3d" }}
+        onPointerEnter={markActive}
+        onPointerLeave={clearActive}
+        onFocus={markActive}
+        onBlur={clearActive}
+        className={cn(
+          "edge press-card relative flex h-full cursor-pointer flex-col overflow-hidden rounded-2xl bg-[#070910]",
+          "transition-colors duration-700",
+          "group-hover:border-[color-mix(in_oklab,var(--color-cyan)_26%,transparent)]",
+        )}
       >
-        {/* Light catching the top edge on hover */}
-        {/* Hover-only on a desktop; on touch this hairline is the only thing
-            marking the card as a live surface, so `touch-edge-light` rests it
-            at a low opacity instead of at zero. */}
+        {/* Light catching the top edge. Hover-only on a desktop; on touch
+            `touch-edge-light` rests it visible, since it is the only thing
+            marking the tile as a live surface. */}
         <span
           aria-hidden
           className="touch-edge-light pointer-events-none absolute inset-x-0 top-0 z-20 h-px opacity-0 transition-opacity duration-700 group-hover:opacity-100"
@@ -161,99 +79,69 @@ export function ProjectCard({ project, index, onOpen }: ProjectCardProps) {
           }}
         />
 
-        {/* Media -------------------------------------------------------- */}
-        <div className="relative aspect-[16/10] w-full overflow-hidden sm:aspect-[16/9] lg:aspect-[16/8.4]">
-          <div
-            ref={media}
-            className="absolute inset-0 will-change-transform transition-transform duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.03]"
-          >
+        {/* Poster ------------------------------------------------------- */}
+        <div className="relative aspect-[16/10] w-full overflow-hidden">
+          <div className="absolute inset-0 transition-transform duration-[900ms] ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:scale-[1.05]">
             <ProjectVisual
               src={project.image}
               alt={project.title}
-              priority={index === 0}
+              priority={index < 2}
+              sizes="(max-width: 1023px) 46vw, 31vw"
             />
           </div>
+
           <span
             aria-hidden
             className="pointer-events-none absolute inset-0"
             style={{
               background:
-                "linear-gradient(to top, rgba(3,4,7,0.82) 0%, rgba(3,4,7,0.1) 42%, transparent 70%)",
+                "linear-gradient(to top, rgba(3,4,7,0.88) 0%, rgba(3,4,7,0.45) 22%, rgba(3,4,7,0.05) 52%, transparent 74%)",
             }}
           />
+
+          {/* Both markers sit in the scrim along the bottom edge, not on the
+              open poster. Every one of these covers is a bright, busy title
+              card: at the top the number simply vanished into the artwork, and
+              the chip landed on the title. The bottom band is the one part of
+              the image that is dark by construction, and it is the part the
+              artwork uses least. */}
           <span
             aria-hidden
-            className="pointer-events-none absolute top-6 right-7 font-display text-[clamp(2.2rem,5vw,4.4rem)] leading-none tracking-[-0.05em] text-[rgba(244,246,255,0.14)] transition-colors duration-700 group-hover:text-[rgba(108,243,255,0.3)]"
+            className="pointer-events-none absolute right-3 bottom-2 font-display text-[1.6rem] leading-none tracking-[-0.05em] text-[rgba(244,246,255,0.55)] transition-colors duration-700 group-hover:text-[rgba(108,243,255,0.85)] sm:text-[2rem]"
           >
             {num}
           </span>
-        </div>
 
-        {/* Metadata ----------------------------------------------------- */}
-        <div className="relative flex flex-col gap-6 p-6 sm:p-8 lg:flex-row lg:items-end lg:justify-between lg:gap-12 lg:p-10">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-3">
-              <span className="label label-bright">{project.category}</span>
-              <span className="label">/ {project.year}</span>
-              {project.playUrl && (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-[color-mix(in_oklab,var(--color-cyan)_34%,transparent)] px-2.5 py-1">
-                  <span className="h-1 w-1 rounded-full bg-[var(--color-cyan)]" />
-                  <span className="font-mono text-[0.5625rem] leading-none tracking-[0.2em] text-[var(--color-cyan)]">
-                    PLAYABLE
-                  </span>
-                </span>
-              )}
-              {project.placeholder && <PlaceholderChip />}
-            </div>
-
-            <h3 className="display-lg mt-5 transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-[5px]">
-              {project.title}
-            </h3>
-
-            <p className="body-base mt-5 line-clamp-3 max-w-[58ch]">
-              {project.description}
-            </p>
-          </div>
-
-          <div className="flex shrink-0 flex-col items-start gap-6 lg:items-end">
-            {project.technologies.length > 0 && (
-              <ul className="flex flex-wrap gap-2 lg:justify-end">
-                {project.technologies.map((t: string) => (
-                  <li
-                    key={t}
-                    className="rounded-full border border-[var(--color-line-soft)] px-3 py-1.5 font-mono text-[0.5875rem] tracking-[0.16em] text-[var(--color-faint)]"
-                  >
-                    {t}
-                  </li>
-                ))}
-              </ul>
-            )}
-            <span className="touch-affordance label label-bright inline-flex items-center gap-2 transition-colors duration-500 group-hover:text-[var(--color-cyan)]">
-              {project.playUrl ? "PLAY PROJECT" : "VIEW PROJECT"}
-              <span className="transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-1">
-                →
+          {project.playUrl && (
+            <span className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full border border-[color-mix(in_oklab,var(--color-cyan)_40%,transparent)] bg-[rgba(3,4,7,0.62)] px-2 py-1 backdrop-blur-sm">
+              <span className="h-1 w-1 rounded-full bg-[var(--color-cyan)]" />
+              <span className="font-mono text-[0.5rem] leading-none tracking-[0.18em] text-[var(--color-cyan)]">
+                PLAYABLE
               </span>
             </span>
+          )}
+        </div>
+
+        {/* Caption ------------------------------------------------------ */}
+        <div className="flex flex-1 flex-col p-4 sm:p-5">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="label label-bright">{project.category}</span>
+            <span className="label">/ {project.year}</span>
+            {project.placeholder && <PlaceholderChip />}
           </div>
+
+          <h3 className="mt-3 font-display text-[1.05rem] leading-[1.15] font-medium tracking-[-0.02em] text-[var(--color-ink)] sm:text-[1.25rem]">
+            {project.title}
+          </h3>
+
+          <span className="touch-affordance label label-bright mt-auto inline-flex items-center gap-2 pt-5 transition-colors duration-500 group-hover:text-[var(--color-cyan)]">
+            {project.playUrl ? "PLAY" : "VIEW"}
+            <span className="transition-transform duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:translate-x-1">
+              →
+            </span>
+          </span>
         </div>
       </div>
     </article>
   );
-}
-
-/** Registers the "which project is active" trigger for the WebGL layer. */
-function ScrollTriggerCreate(el: HTMLElement, index: number) {
-  gsap.timeline({
-    scrollTrigger: {
-      trigger: el,
-      start: "top 60%",
-      end: "bottom 40%",
-      onToggle: (self) => {
-        if (self.isActive) sceneState.activeProject = index;
-      },
-      onUpdate: (self) => {
-        sceneState.projectProgress = self.progress;
-      },
-    },
-  });
 }

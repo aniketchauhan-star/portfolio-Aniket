@@ -14,11 +14,19 @@ export function ProjectVisual({
   alt,
   className,
   priority = false,
+  /**
+   * Passed straight to next/image. The default describes a full-width card
+   * (the project overlay); a tile in the work grid is a third of that at most,
+   * so the grid passes its own value rather than downloading a hero-sized
+   * image for a 170px thumbnail.
+   */
+  sizes = "(max-width: 768px) 92vw, (max-width: 1280px) 78vw, 68vw",
 }: {
   src?: string;
   alt: string;
   className?: string;
   priority?: boolean;
+  sizes?: string;
 }) {
   if (src) {
     return (
@@ -27,7 +35,7 @@ export function ProjectVisual({
         alt={alt}
         fill
         priority={priority}
-        sizes="(max-width: 768px) 92vw, (max-width: 1280px) 78vw, 68vw"
+        sizes={sizes}
         className={cn("object-cover", className)}
       />
     );

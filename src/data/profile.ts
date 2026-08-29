@@ -420,7 +420,6 @@ export const profile = {
       year: "2023",
       institution: "Delhi University",
       qualification: "Bachelor of Arts (BA), Political Science and Government",
-      detail: "Listed on LinkedIn as August 2023.",
     },
   ] as EducationEntry[],
 
