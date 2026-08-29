@@ -168,9 +168,9 @@ export const profile = {
    * render it.
    */
   phone: "",
-  extraLinks: [
-    { label: "BLOG", href: "https://aniketchauhan.netlify.app/", external: true },
-  ] as SocialLink[],
+  /** Extra links appended after LinkedIn / GitHub / email, everywhere those
+   *  render. Empty, so nothing extra is shown. */
+  extraLinks: [] as SocialLink[],
 
   /* --- Availability ------------------------------------------------------- */
   /** Not stated on LinkedIn, so the STATUS row stays hidden. Set a value such
