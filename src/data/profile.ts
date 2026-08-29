@@ -360,6 +360,23 @@ export const profile = {
         touch: "TAP THE CORNER ARROWS · LANDSCAPE",
       },
     },
+    {
+      id: "heavy-and-light",
+      title: "Heavy and Light",
+      category: "LEARNING GAME",
+      year: "2026",
+      role: "Design & Development",
+      description:
+        "Not a storybook this time — a single working object. A bird flies in, the balance assembles itself piece by piece, and she sits in a pan to demonstrate that the heavier side goes down before asking you to try it: eight rounds of dragging two things into the pans and watching which one wins, from apple against watermelon up to dog against elephant. The beam is a real rig rather than a swapped picture — it pivots on its hub and carries the pans and whatever is sitting in them, with every pivot point and sprite anchor measured off the artwork's own pixels. The whole thing is one self-contained HTML file with no build step and no dependencies.",
+      technologies: ["JavaScript", "Canvas", "WebP", "Web Audio"],
+      image: "/projects/heavy-and-light.webp",
+      /** Playable build lives in /public/games/heavy-and-light. */
+      playUrl: "/games/heavy-and-light/index.html",
+      playControls: {
+        pointer: "DRAG THE OBJECTS INTO THE PANS",
+        touch: "DRAG THE OBJECTS · LANDSCAPE",
+      },
+    },
   ] as Project[],
 
   /* --- Experience --------------------------------------------------------- */

@@ -1,0 +1,2949 @@
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Heavy and Light</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lilita+One&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --stage-w: 1920px;
+    --stage-h: 1080px;
+    --ink: #3B2A1B;
+    --gold: #FFC53D;
+  }
+  *{ margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{
+    width:100%; height:100%; height:100dvh;
+    overflow:hidden; background:#0E1B2A; overscroll-behavior:none;
+  }
+  body{
+    position:fixed; inset:0;
+    font-family:"Lilita One","Chalkboard SE","Comic Sans MS",system-ui,sans-serif;
+    touch-action:none; user-select:none;
+  }
+
+  /* blurred edge-filler so any leftover bar never reads as a black border */
+  #backdrop{
+    position:fixed; inset:-6%;
+    background:#1a3550 center/cover no-repeat;
+    filter:blur(46px) brightness(.62) saturate(1.15);
+    transform:scale(1.14); z-index:0;
+    transition:background-image .4s ease;
+  }
+  #backdrop::after{
+    content:""; position:absolute; inset:0;
+    background:radial-gradient(120% 100% at 50% 50%, rgba(0,0,0,0) 45%, rgba(0,0,0,.55) 100%);
+  }
+
+
+  /* ---------- 16:9 stage that scales to fit any screen ---------- */
+  #stage{
+    position:absolute; left:50%; top:50%;
+    width:var(--stage-w);  min-width:var(--stage-w);  max-width:var(--stage-w);
+    height:var(--stage-h); min-height:var(--stage-h); max-height:var(--stage-h);
+    flex:0 0 auto;
+    aspect-ratio:16 / 9;
+    transform-origin:50% 50%;
+    transform:translate(-50%,-50%) scale(1);
+    overflow:hidden;
+    z-index:1;
+    border-radius:14px;
+    box-shadow:0 30px 80px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.10);
+    background:#8ED0F0;
+  }
+  .layer{ position:absolute; inset:0; }
+  .bg{ width:100%; height:100%; object-fit:cover; display:block; }
+
+  /* ---------- loading ---------- */
+
+  /* ---------- start screen ---------- */
+  #startScreen{ z-index:20; }
+  /* The play button is hidden until every asset is in. #preBar sits in its
+     place meanwhile, so the start screen is never showing a button that
+     isn't ready to be pressed. */
+  #startBtn[hidden]{ display:none; }
+  #preBar{
+    position:absolute; z-index:22; pointer-events:none;
+    display:flex; flex-direction:column; align-items:center; gap:14px;
+    /* the start screen behind it is busy, so the bar gets its own ground */
+    padding:20px 26px 18px; border-radius:28px;
+    background:rgba(18,32,52,.45);
+    box-shadow:0 10px 30px rgba(0,0,0,.30), inset 0 0 0 2px rgba(255,255,255,.16);
+  }
+  #preBar[hidden]{ display:none; }
+  #preTrack{
+    width:100%; height:30px; border-radius:99px;
+    background:rgba(255,255,255,.34);
+    box-shadow:inset 0 4px 10px rgba(0,0,0,.18), 0 0 0 6px rgba(255,255,255,.30);
+    overflow:hidden;
+  }
+  #preFill{
+    width:0%; height:100%; border-radius:99px;
+    background:linear-gradient(90deg,#FFD24A,#FF9A3D,#FF6FA5);
+    transition:width .22s ease-out;
+  }
+  #preTxt{
+    font-size:30px; color:#fff; letter-spacing:2px;
+    text-shadow:0 4px 0 rgba(0,0,0,.22);
+  }
+  #startBtn{
+    position:absolute; width:275px; height:294px;
+    left:698px; top:641px;
+    border:0; background:transparent; padding:0; cursor:pointer;
+    filter:drop-shadow(0 16px 22px rgba(0,0,0,.32));
+    animation:btnIdle 2.2s ease-in-out infinite;
+    transform-origin:50% 50%;
+  }
+  #startBtn img{ width:100%; height:100%; display:block; pointer-events:none; }
+  #startBtn::after{
+    content:""; position:absolute; inset:-16px; border-radius:50%;
+    box-shadow:0 0 0 0 rgba(255,255,255,.75);
+    animation:ring 2.7s ease-out infinite; pointer-events:none;
+  }
+  @keyframes btnIdle{
+    0%,100%{ transform:translateY(0) scale(1) }
+    50%    { transform:translateY(-16px) scale(1.045) }
+  }
+  @keyframes ring{
+    0%  { box-shadow:0 0 0 0 rgba(255,255,255,.55) }
+    70% { box-shadow:0 0 0 46px rgba(255,255,255,0) }
+    100%{ box-shadow:0 0 0 0 rgba(255,255,255,0) }
+  }
+  #tapHint[hidden]{ display:none; }
+  #tapHint{
+    position:absolute; left:0; right:0; top:600px; text-align:center;
+    font-size:36px; font-weight:800; color:#fff; letter-spacing:2px;
+    text-shadow:0 4px 0 rgba(0,0,0,.22);
+    animation:hintPulse 2.2s ease-in-out infinite; pointer-events:none;
+  }
+  @keyframes hintPulse{ 0%,100%{ opacity:.55; transform:translateY(0) } 50%{ opacity:1; transform:translateY(-6px) } }
+
+  /* ---------- game screen ---------- */
+  #gameScreen{ z-index:10; visibility:hidden; }
+  #gameBg{ transform-origin:50% 62%; }
+
+  #birdWrap{ position:absolute; left:0; top:0; width:0; height:0; will-change:transform; }
+  .birdLayer{
+    position:absolute; left:0; top:0;
+    background-repeat:no-repeat;
+    image-rendering:auto;
+    will-change:transform, background-position, opacity;
+    filter:drop-shadow(0 14px 14px rgba(40,30,10,.28));
+    backface-visibility:hidden;
+  }
+  #birdB{ opacity:0; }
+  #shadow{
+    position:absolute; left:0; top:0; width:210px; height:46px; border-radius:50%;
+    background:radial-gradient(ellipse at center, rgba(60,45,20,.42) 0%, rgba(60,45,20,.16) 55%, rgba(60,45,20,0) 72%);
+    transform:translate(-9999px,-9999px); will-change:transform,opacity;
+  }
+
+  #againBtn{
+    position:absolute; left:50%; bottom:88px; z-index:40;
+    transform:translateX(-50%) scale(0);
+    border:0; cursor:pointer; font-family:inherit;
+    font-size:58px; color:#5A3210; letter-spacing:1px;
+    padding:22px 68px 26px; border-radius:999px;
+    background:linear-gradient(180deg,#FFE888 0%,#FFC53D 55%,#F0980F 100%);
+    box-shadow:0 12px 0 #C4760A, 0 22px 40px rgba(0,0,0,.38), inset 0 0 0 7px #FFF6D8;
+  }
+  #againBtn[hidden]{ display:none; }
+  #againBtn.live{ animation:againIdle 1.9s ease-in-out infinite; }
+  #againBtn:active{ animation:none; transform:translateX(-50%) translateY(7px) scale(.97); box-shadow:0 5px 0 #C4760A, 0 10px 20px rgba(0,0,0,.35), inset 0 0 0 7px #FFF6D8; }
+  @keyframes againIdle{
+    0%,100%{ transform:translateX(-50%) scale(1) }
+    50%    { transform:translateX(-50%) scale(1.05) }
+  }
+
+  /* A 16:9 stage inside a tall phone collapses to an unreadable strip, so ask
+     for landscape instead of shipping 10px text. Only on small screens: a
+     portrait tablet is still big enough to play. */
+  #rotate{
+    position:fixed; inset:0; z-index:120; display:none;
+    flex-direction:column; align-items:center; justify-content:center; gap:34px;
+    background:linear-gradient(180deg,#6EC6F5 0%,#A7E36F 100%);
+    color:#fff; text-align:center; padding:32px;
+  }
+  #rotate.show{ display:flex; }
+  #rotate svg{ width:150px; height:150px; animation:tipOver 2.2s ease-in-out infinite; }
+  #rotate p{ font-size:40px; line-height:1.3; text-shadow:0 4px 0 rgba(0,0,0,.18); max-width:16em; }
+  @keyframes tipOver{
+    0%,42%   { transform:rotate(0deg) }
+    58%,100% { transform:rotate(-90deg) }
+  }
+
+  #sndBtn{
+    position:absolute; right:26px; bottom:24px; z-index:95;
+    border:0; border-radius:999px; cursor:pointer;
+    padding:14px 26px; font-family:inherit; font-size:26px; color:#3B2A1B;
+    background:#fffdf6; box-shadow:0 8px 0 rgba(0,0,0,.12), 0 12px 26px rgba(0,0,0,.28);
+    animation:hintPulse 2.2s ease-in-out infinite;
+  }
+  #sndBtn[hidden]{ display:none; }
+
+  /* ---------- scene 4: gate, question bar, fruit ---------- */
+  #gate{ position:absolute; inset:0; z-index:80; pointer-events:none; visibility:hidden; }
+  /* The panel art is a rounded rectangle — its corners are ~64% transparent,
+     so on their own the two halves leave the screen corners showing. Each
+     half rides on a solid slab in the panel's own gold, which fills those
+     corners and the hairline at the seam. */
+  .gateBack{
+    position:absolute; top:-4px; width:964px; height:1088px;
+    background:linear-gradient(180deg,#FBC63C 0%,#F4AE25 55%,#E07A08 100%);
+  }
+  #gate img{ position:absolute; width:979px; height:1190px; top:-52.6px; }
+  #gateR{ transform:scaleX(-1); }
+
+  #qbar{ position:absolute; z-index:30; opacity:0; pointer-events:none; }
+  #qbar img{ width:100%; height:100%; display:block; }
+  #qbarText{
+    position:absolute; display:flex; align-items:center; justify-content:center;
+    text-align:center; color:var(--ink); font-size:40px; line-height:1.15;
+    letter-spacing:.3px; padding:0 14px;
+  }
+  .thing{ position:absolute; opacity:0; z-index:12; will-change:transform,left,top; }
+  .thing, #stoneImg{ pointer-events:auto; cursor:grab; touch-action:none; }
+  .thing.held, #stoneImg.held{ cursor:grabbing; }
+
+  /* ---------- scene 3 props ---------- */
+  #sitBird, #stoneImg{ position:absolute; opacity:0; will-change:transform,left,top; }
+  #sitBird{ z-index:8; }   /* in front of the pan, not tucked behind the rim */
+  #stoneImg{ z-index:7; transform-origin:50% 70%; }
+  #balance{ z-index:5; }
+  #tableImg{ position:absolute; opacity:0; z-index:6; transform-origin:50% 100%; }
+  #birdWrap{ z-index:15; }
+  #bubble{ z-index:25; }
+
+  .dirArrow{
+    position:absolute; width:104px; height:196px; opacity:0; z-index:12;
+    pointer-events:none; will-change:transform,opacity;
+    filter:drop-shadow(0 8px 10px rgba(0,0,0,.35));
+  }
+  .dirArrow svg{ width:100%; height:100%; display:block; }
+  .dirArrow.go.down{ animation:bobDown 1.6s ease-in-out infinite; }
+  .dirArrow.go.up  { animation:bobUp   1.6s ease-in-out infinite; }
+  @keyframes bobDown{ 0%,100%{ transform:translateY(-16px) scale(1) } 50%{ transform:translateY(16px) scale(1.07) } }
+  @keyframes bobUp  { 0%,100%{ transform:translateY(16px)  scale(1) } 50%{ transform:translateY(-16px) scale(1.07) } }
+
+  #hand{
+    position:absolute; width:100px; height:141px; opacity:0; z-index:22;
+    pointer-events:none; will-change:transform,opacity;
+    filter:drop-shadow(0 4px 7px rgba(0,0,0,.38));
+  }
+  #hand img{ width:100%; height:100%; display:block; }
+
+  /* ---------- the balance ---------- */
+  #balance{ position:absolute; inset:0; pointer-events:none; }
+  .part{ position:absolute; opacity:0; will-change:transform,opacity; }
+  .part img{ width:100%; height:100%; display:block; }
+  #pBeam img{ transform-origin:52.24% 49.26%; }        /* the hub */
+  #pTrayL img, #pTrayR img{ transform-origin:47.85% 11.02%; }  /* the hanging ring */
+  #pCol img, #pBase img{ transform-origin:50% 100%; }
+
+  #hammer{
+    position:absolute; width:150px; height:200px; opacity:0;
+    pointer-events:none; will-change:transform,opacity;
+    filter:drop-shadow(0 10px 12px rgba(0,0,0,.3));
+  }
+  #hammer svg{ width:100%; height:100%; display:block; }
+
+  /* ---------- speech bubble ---------- */
+  #bubble{
+    position:absolute; left:499px; width:940px; bottom:492px;
+    background:#fffdf6; border:6px solid var(--gold);
+    border-radius:34px; padding:16px 30px 20px;
+    box-shadow:0 18px 0 rgba(0,0,0,.10), 0 26px 44px rgba(0,0,0,.22);
+    text-align:center; opacity:0; transform:scale(.2); transform-origin:50% 120%;
+    pointer-events:none;
+  }
+  #bubbleText{
+    font-size:48px; font-weight:400; line-height:1.24; color:var(--ink); letter-spacing:.3px;
+    text-wrap:balance;
+  }
+  #bubble .tail, #bubble .tailIn{
+    position:absolute; left:50%; width:0; height:0; border-style:solid;
+  }
+  #bubble .tail{
+    bottom:-36px; margin-left:-27px;
+    border-width:36px 27px 0 27px;
+    border-color:var(--gold) transparent transparent transparent;
+  }
+  #bubble .tailIn{
+    bottom:-25px; margin-left:-18px;
+    border-width:26px 18px 0 18px;
+    border-color:#fffdf6 transparent transparent transparent;
+  }
+  #bubble.tailUp .tail{
+    bottom:auto; top:-36px;
+    border-width:0 27px 36px 27px;
+    border-color:transparent transparent var(--gold) transparent;
+  }
+  #bubble.tailUp .tailIn{
+    bottom:auto; top:-25px;
+    border-width:0 18px 26px 18px;
+    border-color:transparent transparent #fffdf6 transparent;
+  }
+
+  /* ---------- fx ---------- */
+  #fx{ position:absolute; inset:0; z-index:60; pointer-events:none; }
+  #flash{ position:absolute; inset:0; z-index:70; background:#fff; opacity:0; pointer-events:none; }
+</style>
+
+<div id="backdrop"></div>
+
+<div id="rotate" role="alertdialog" aria-live="polite">
+  <svg viewBox="0 0 100 100" aria-hidden="true">
+    <rect x="30" y="6" width="40" height="88" rx="9" fill="none" stroke="#fff" stroke-width="6"/>
+    <rect x="38" y="18" width="24" height="58" rx="3" fill="#fff" opacity=".85"/>
+    <circle cx="50" cy="86" r="4" fill="#fff"/>
+  </svg>
+  <p>Turn your device sideways to play!</p>
+</div>
+
+<!-- Ogg/Opus + WebP: Chrome, Edge, Firefox, and Safari 15+ (macOS 11+/iOS 15+). -->
+<audio id="bgm" loop preload="none" src="sounds/bg%20music.ogg"></audio>
+
+<div id="stage">
+
+  <!-- GAME -->
+  <div class="layer" id="gameScreen">
+    <img class="bg" id="gameBg" alt="">
+    <img id="sitBird" alt="">
+    <img id="stoneImg" alt="">
+    <div id="balance">
+      <div class="part" id="pTrayL"><img alt=""></div>
+      <div class="part" id="pTrayR"><img alt=""></div>
+      <div class="part" id="pBase"><img alt=""></div>
+      <div class="part" id="pCol"><img alt=""></div>
+      <div class="part" id="pBeam"><img alt=""></div>
+      <div id="hammer">
+        <svg viewBox="0 0 150 200">
+          <rect x="64" y="6" width="22" height="138" rx="11" fill="#C9873F" stroke="#7A4A1E" stroke-width="7"/>
+          <rect x="70" y="20" width="7" height="104" rx="4" fill="#E6B57B" opacity=".7"/>
+          <rect x="12" y="126" width="126" height="64" rx="20" fill="#E2A65B" stroke="#7A4A1E" stroke-width="8"/>
+          <rect x="30" y="140" width="44" height="17" rx="9" fill="#F8DDB4" opacity=".8"/>
+          <circle cx="119" cy="158" r="7" fill="#7A4A1E" opacity=".35"/>
+        </svg>
+      </div>
+    </div>
+    <img id="tableImg" alt="">
+    <img id="melonImg" class="thing" alt="">
+    <img id="appleImg" class="thing" alt="">
+    <img id="featherImg" class="thing" alt="">
+    <img id="bookImg" class="thing" alt="">
+    <img id="pencilImg" class="thing" alt="">
+    <img id="footballImg" class="thing" alt="">
+    <img id="gballImg" class="thing" alt="">
+    <img id="busImg" class="thing" alt="">
+    <img id="bikeImg" class="thing" alt="">
+    <img id="laptopImg" class="thing" alt="">
+    <img id="mobileImg" class="thing" alt="">
+    <img id="elephImg" class="thing" alt="">
+    <img id="dogImg" class="thing" alt="">
+    <img id="lunchImg" class="thing" alt="">
+    <img id="eraserImg" class="thing" alt="">
+
+    <div id="qbar"><img alt=""><div id="qbarText"></div></div>
+
+    <div class="dirArrow" id="arrowDown">
+      <svg viewBox="0 0 104 196">
+        <defs><linearGradient id="gd" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#FFA733"/><stop offset="1" stop-color="#FF2D55"/></linearGradient></defs>
+        <path d="M36 10 H68 V104 H95 L52 184 L9 104 H36 Z"
+              fill="url(#gd)" stroke="#fff" stroke-width="9" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div class="dirArrow" id="arrowUp">
+      <svg viewBox="0 0 104 196">
+        <defs><linearGradient id="gu" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0" stop-color="#3AC6FF"/><stop offset="1" stop-color="#7B5CFF"/></linearGradient></defs>
+        <path d="M36 186 H68 V92 H95 L52 12 L9 92 H36 Z"
+              fill="url(#gu)" stroke="#fff" stroke-width="9" stroke-linejoin="round"/>
+      </svg>
+    </div>
+
+    <div id="hand">
+      <img id="handImg" alt="">
+    </div>
+
+    <button id="againBtn" hidden>Play Again</button>
+    <button id="sndBtn" hidden>&#128266;&nbsp; Tap for sound</button>
+
+    <div id="gate">
+      <div class="gateBack" id="gbL"></div><div class="gateBack" id="gbR"></div>
+      <img id="gateL" alt=""><img id="gateR" alt="">
+    </div>
+
+    <div id="shadow"></div>
+    <div id="birdWrap"><div id="birdB" class="birdLayer"></div><div id="birdA" class="birdLayer"></div></div>
+    <div id="bubble">
+      <div id="bubbleText"></div>
+      <div class="tail"></div><div class="tailIn"></div>
+    </div>
+  </div>
+
+  <!-- START -->
+  <div class="layer" id="startScreen">
+    <img class="bg" id="startBg" alt="">
+    <div id="tapHint" hidden>TAP TO PLAY</div>
+    <button id="startBtn" aria-label="Start game" hidden><img id="startBtnImg" alt=""></button>
+    <div id="preBar"><div id="preTrack"><div id="preFill"></div></div><div id="preTxt">LOADING 0%</div></div>
+  </div>
+
+  <canvas id="fx" width="1920" height="1080"></canvas>
+  <div id="flash"></div>
+
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* =========================================================
+   TUNABLE LAYOUT  (stage is 1920 x 1080 — matches the artwork 1:1)
+   Derived from your Figma coords, frame origin X0 = -739.5, Y0 = -2000
+   (start-screen frame on top, game frame directly below it).
+     button  Figma 1562,-1280  ->  822,720   (275 x 294, dead centre)
+     bird    Figma 1536,-315   ->  797,605   (345 x 316)
+   ========================================================= */
+const LAYOUT = {
+  startBtn : { x:822, y:720, w:275, h:294 },        // play button
+  bird     : { footX:969, footY:921 }               // where her feet land (size = BIRD_H)
+};
+
+/* =========================================================
+   THE BALANCE
+   Your Figma numbers, mapped with frame origin X0 = 863.5, Y0 = 273.
+   The check that says this is right: the beam's hub lands on x 969.3 and
+   the column's centre on x 968.5 — 0.8px apart.
+   The `f*` values are anchor points measured off the actual artwork, as a
+   fraction of each part's box, so the pieces genuinely hinge together.
+   ========================================================= */
+const BAL = {
+  beam : { x:483.5, y:401, w:930, h:229 },
+  col  : { x:869.5, y:582, w:198, h:296 },
+  base : { x:796.5, y:833, w:335, h:176 },
+  tray : { w:314, h:418 },
+  hub  : {fx:0.5224, fy:0.4926},   // beam pivot
+  knobL: {fx:0.0635, fy:0.5419},   // where the left pan hooks on
+  knobR: {fx:0.9414, fy:0.5394},   // where the right pan hooks on
+  ring  :{fx:0.4785, fy:0.1102},   // the pan's own hanging ring
+
+  /* The part positions above are final. Everything is grouped under #balance
+     and moved as ONE object from here — nudge or resize the whole balance
+     with these three numbers, no part-by-part editing. Anchored on the hub. */
+  group: { dx:0, dy:0, scale:1 }
+};
+
+/* ---- scene 3: the bird demonstrates the balance ----
+   Same frame origin (X0 863.5). Two independent checks say this is right:
+   the stone's in-pan spot lands on the left pan's LEVEL position to 0.1px,
+   and the group height you gave (617.74) is the assembly with the beam
+   tipped ~22deg — exactly the pose with the bird sitting in the right pan. */
+const SC3 = {
+  /* She perches on the red knob. The knob's centre is x 969.3 and it is only
+     ~114px across where she can stand, so her feet are aimed at that centre
+     and she is sized so her 80px foot span sits inside the red, not over it. */
+  perch   : { footX:969.3, footY:468, h:185 },
+  /* The sit-in-pan artwork is native 174x192, but measured against the perched
+     bird its cap is 117px where hers is 98.6, and its head band 135px where
+     hers is 116.8 — i.e. it is ~0.854 too big. Scaled to match, she is the
+     same bird whether she is on top of the machine or down in the pan. */
+  sitPan  : { dx:73.2,  dy:178,   w:148.6, h:164.0 },
+  /* Seated against the bowl: the artwork is centred on the pan (dx) and its
+     base rests just above the bowl floor at pan-y 404.5 (dy). The earlier
+     offsets left it perched on the rim rather than down inside. */
+  stonePan: { dx:48.6,  dy:255.6, w:216, h:144 },
+  table   : { x:631.6, y:815, w:675, h:225 },
+  stone0  : { x:852.5, y:767, w:216, h:144 },      // where it appears on the table
+  slideUp : -217.1,                                 // the balance eases back and up
+  TILT    : 21,                                     // how far the beam tips
+  // after the slide the hub sits at y 197, so a perched bird would be cut off
+  // the top of the screen. She lands on the table for the last two lines.
+  stand   : { footX:1214, footY:884, h:250 }
+};
+
+/* The front rim of the pan, traced off the artwork's own highlight and fitted
+   in pan-box pixels (rms 1.0px):   y = 328.0 - 0.00079*(x - 155.9)^2
+   The sitting bird is cropped square at the bottom, so we clip her along this
+   very curve — her lower edge then follows the bowl instead of cutting across
+   it. A quadratic Bezier IS a parabola, so the match is exact, not eyeballed. */
+const RIM = { a:328.0, b:-0.00079, h:155.9 };
+function clipToRim(el, dx, dy, w){
+  const f = x => RIM.a + RIM.b*Math.pow((x+dx)-RIM.h,2) - dy;
+  const x0=-8, x2=w+8, xm=(x0+x2)/2;
+  const y0=f(x0), y2=f(x2), y1=2*f(xm)-0.5*(y0+y2);
+  el.style.clipPath =
+    `path('M ${x0} -8 L ${x2} -8 L ${x2} ${y2.toFixed(1)} Q ${xm} ${y1.toFixed(1)} ${x0} ${y0.toFixed(1)} Z')`;
+}
+const clipBirdToRim = ()=> clipToRim(sitBird, SC3.sitPan.dx, SC3.sitPan.dy, SC3.sitPan.w);
+
+/* =========================================================
+   SCENE 4 — the gate wipe, the question bar, and the fruit round
+   The gate art is 1086x1448 with a little transparent margin, so each half
+   is drawn at 979x1190: that makes the PAINTED part exactly 960x1080, and
+   the two halves meet on x=960 with their clasps interlocking.
+   ========================================================= */
+const GATE = { w:979, h:1190, top:-52.6,
+               closedL:-13.5, closedR:954.6,     // painted edges meet at x=960
+               openL:-1000,   openR:1940,
+               // the solid slabs overlap 4px at the seam and 2px past the frame
+               bClosedL:-2, bClosedR:958, bOpenL:-972, bOpenR:1930 };
+
+const SC4 = {
+  /* Centred, (1920-887)/2. y is negative because the art carries 38.8px of
+     transparent margin above the painted bar; -38 puts the bar itself at the
+     very top of the frame, just clear of the beam beneath it. */
+  qbar   : { x:516.5, y:-38, w:887, h:296 },
+  // the cream well, re-measured off the artwork: y 220..470 of 724
+  well   : { x:136, y:90, w:713, h:102 },
+};
+
+/* Everything that can be dragged into a pan. `home` is where it waits on the
+   table (base resting on the surface at y 900) and `off` is its seat inside
+   the pan: centred on the pan and resting just above the bowl floor. */
+const THINGS = {
+  /* Sized by one rule so weight reads at a glance: a HEAVY thing's larger
+     artwork dimension is 215px, a LIGHT one's is 150px — so in every round
+     the heavy object is visibly the bigger of the pair. `home` puts it on
+     the table (base on the surface at y 900); `off` seats it centred in the
+     pan with its base just above the bowl floor. */
+  apple  : { img:'appleImg', src:'apple', w:171, h:171, pan:'R',
+             home:{x:1002.7, y:740.6}, off:{dx:69.7, dy:230.1} },
+  melon  : { img:'melonImg', src:'melon', w:225, h:225, pan:'L',
+             home:{x:717.6, y:679.8}, off:{dx:44.6, dy:169.3} },
+  feather: { img:'featherImg', src:'feather', w:162, h:162, pan:'R',
+             home:{x:1004.5, y:744.3}, off:{dx:71.5, dy:233.8} },
+  rock   : { img:'stoneImg', src:'stone', w:273, h:182, pan:'L',
+             home:{x:693.0, y:733.3}, off:{dx:20.0, dy:222.8} },
+  book   : { img:'bookImg', src:'book', w:241, h:241, pan:'L',
+             home:{x:709.2, y:673.4}, off:{dx:36.2, dy:162.9} },
+  pencil : { img:'pencilImg', src:'pencil', w:170, h:113, pan:'R',
+             home:{x:1002.6, y:791.4}, off:{dx:69.6, dy:280.9} },
+  ball   : { img:'footballImg', src:'football', w:242, h:221, pan:'L',
+             home:{x:709.6, y:682.3}, off:{dx:36.6, dy:171.8} },
+  toy    : { img:'gballImg', src:'gball', w:160, h:160, pan:'R',
+             home:{x:1010.2, y:746.3}, off:{dx:77.2, dy:235.8} },
+  bus    : { img:'busImg', src:'bus', w:224, h:150, pan:'L',
+             home:{x:718.6, y:753.5}, off:{dx:45.6, dy:243.0} },
+  bike   : { img:'bikeImg', src:'bike', w:166, h:110, pan:'R',
+             home:{x:1005.8, y:792.3}, off:{dx:72.8, dy:281.8} },
+  laptop : { img:'laptopImg', src:'laptop', w:231, h:154, pan:'L',
+             home:{x:714.3, y:746.9}, off:{dx:41.3, dy:236.4} },
+  mobile : { img:'mobileImg', src:'mobile', w:104, h:156, pan:'R',
+             home:{x:1037.6, y:746.9}, off:{dx:104.6, dy:236.4} },
+  eleph  : { img:'elephImg', src:'eleph', w:252, h:231, pan:'L',
+             home:{x:700.8, y:675.9}, off:{dx:27.8, dy:165.4} },
+  dog    : { img:'dogImg', src:'dog', w:159, h:159, pan:'R',
+             home:{x:1009.5, y:745.1}, off:{dx:76.5, dy:234.6} },
+  lunch  : { img:'lunchImg', src:'lunchbox', w:229, h:153, pan:'L',
+             home:{x:713.6, y:750.4}, off:{dx:40.6, dy:239.9} },
+  eraser : { img:'eraserImg', src:'eraser', w:162, h:108, pan:'R',
+             home:{x:1008.5, y:797.0}, off:{dx:75.5, dy:286.5} }
+};
+
+/* One round = drag the light thing, then the heavy one, then compare. */
+const ROUNDS = [
+  { first:'apple', second:'melon', heavy:'melon', lines:{
+      first  : "Drag the apple into the pan!",
+      second : "Now drag the watermelon!",
+      heavier: "The watermelon is heavier, so it goes DOWN!",
+      lighter: "The apple is lighter, so it goes UP!",
+      done   : "Great job! The watermelon wins!" } },
+  { first:'feather', second:'rock', heavy:'rock', lines:{
+      first  : "Now try this one. Drag the feather into the pan!",
+      second : "And now the stone!",
+      heavier: "The stone is heavier, so it goes DOWN!",
+      lighter: "The feather is lighter, so it floats UP!",
+      done   : "Well done! You found the heavy one!" } },
+  { first:'pencil', second:'book', heavy:'book', lines:{
+      first  : "Next up! Drag the pencil into the pan!",
+      second : "Now put the book in!",
+      heavier: "The book is heavier, so it goes DOWN!",
+      lighter: "The pencil is lighter, so it goes UP!",
+      done   : "Nice work! The book won that one!" } },
+  { first:'toy', second:'ball', heavy:'ball', lines:{
+      first  : "Next one! Drag the green ball into the pan!",
+      second : "Now the football!",
+      heavier: "The football is heavier, so it goes DOWN!",
+      lighter: "The plastic ball is lighter, so it goes UP!",
+      done   : "Great! The football wins that one!" } },
+  { first:'bike', second:'bus', heavy:'bus', lines:{
+      first  : "Now the toy bike. Drag it into the pan!",
+      second : "Now the toy bus!",
+      heavier: "The bus is heavier, so it goes DOWN!",
+      lighter: "The bike is lighter, so it goes UP!",
+      done   : "Well done! The bus is the heavy one!" } },
+  { first:'mobile', second:'laptop', heavy:'laptop', lines:{
+      first  : "And now the mobile phone!",
+      second : "Now the laptop!",
+      heavier: "The laptop is heavier, so it goes DOWN!",
+      lighter: "The phone is lighter, so it goes UP!",
+      done   : "Brilliant! The laptop is the heavy one!" } },
+  { first:'dog', second:'eleph', heavy:'eleph', lines:{
+      first  : "Here come the toys! Drag the toy dog into the pan!",
+      second : "Now the toy elephant!",
+      heavier: "The elephant is heavier, so it goes DOWN!",
+      lighter: "The dog is lighter, so it goes UP!",
+      done   : "Super! The elephant is the heavy one!" } },
+  { first:'eraser', second:'lunch', heavy:'lunch', lines:{
+      first  : "Time for school things! Drag the eraser into the pan!",
+      second : "Now the lunch box!",
+      heavier: "The lunch box is heavier, so it goes DOWN!",
+      lighter: "The eraser is lighter, so it goes UP!",
+      done   : "Yes! The lunch box is the heavy one!" } }
+];
+
+const FINALE_LINES = [
+  "Congratulations!",
+  "You learned what is heavy and what is light!"
+];
+
+const LINES3 = {
+  perch : "Let's discover how a balance works!",
+  whoa  : "Whoa! Look what happened!",
+  down  : "The side with more weight goes DOWN...",
+  up    : "...and the lighter side goes UP!",
+  push  : "My weight is pushing this side down!",
+  stone : "See! I'm lighter than the stone, so I go up, while the heavier stone goes down!",
+  find  : "Now, let's find out which object is light and which one is heavy!",
+  play  : "Let's play!",
+  drag  : "Can you drag the stone into the pan?"
+};
+const HUB   = { x: BAL.beam.x + BAL.hub.fx  *BAL.beam.w, y: BAL.beam.y + BAL.hub.fy  *BAL.beam.h };
+const KNOB_L= { x: BAL.beam.x + BAL.knobL.fx*BAL.beam.w, y: BAL.beam.y + BAL.knobL.fy*BAL.beam.h };
+const KNOB_R= { x: BAL.beam.x + BAL.knobR.fx*BAL.beam.w, y: BAL.beam.y + BAL.knobR.fy*BAL.beam.h };
+const RING  = { x: BAL.ring.fx*BAL.tray.w,               y: BAL.ring.fy*BAL.tray.h };
+
+const TEXT = [
+  "Hi! Welcome to Heavy and Light!",
+  "Today, we're going to compare different objects."
+];
+
+const A = {
+  startBg  : "game assets/start screen.webp",
+  startBtn : "game assets/startbutton.webp",
+  gameBg   : "game assets/background game.webp",
+  fly      : "bird/flying bird sprite sheet.webp",
+  jump     : "bird/bird happy jump .webp",
+  talk     : "bird/bird talking stand sprite sheet.webp",
+  beam     : "weight machine/weight tray holder.webp",
+  col      : "weight machine/mid part of weight machine.webp",
+  base     : "weight machine/whole weight stand.webp",
+  tray     : "weight machine/weight tray.webp",
+  table    : "game assets/table.webp",
+  stone    : "game assets/stone.webp",
+  sitBird  : "bird/bird sit in balanced.webp",
+  gate     : "game assets/transition gate.webp",
+  qbar     : "game assets/question bar.webp",
+  apple    : "things/apple.webp",
+  melon    : "things/watermellon.webp",
+  feather  : "game assets/feather.webp",
+  book     : "game assets/book.webp",
+  pencil   : "game assets/pencil.webp",
+  football : "game assets/football.webp",
+  gball    : "game assets/green ball.webp",
+  bus      : "game assets/toy bus.webp",
+  bike     : "game assets/toy bike.webp",
+  laptop   : "game assets/laptop.webp",
+  mobile   : "game assets/mobile.webp",
+  eleph    : "game assets/toy elephant .webp",
+  dog      : "game assets/toy dog.webp",
+  lunchbox : "game assets/lunch box.webp",
+  eraser   : "game assets/eraser.webp",
+  hand     : "game assets/handNudge.webp"
+};
+
+/* Bird's cap-to-feet height on screen. bird.png is 345x316 with 310px of
+   actual artwork in it, so 310 is the size your Figma layout asks for. */
+const BIRD_H  = 310;
+const JUMP_H  = 168;   // how high she actually hops, in stage px
+
+/* smooth interpolation across a list of keyframe values */
+function liftAt(keys, p){
+  const n = keys.length-1;
+  const x = clamp(p,0,1)*n;
+  const i = Math.min(n-1, Math.floor(x));
+  const f = x-i;
+  return lerp(keys[i], keys[i+1], f*f*(3-2*f));   // smoothstep between keys
+}
+
+/* Every sheet below was measured from its real pixels:
+     ref     = the bird's true cap-to-feet height inside that sheet
+     anchors = [feet-centre-x, feet-bottom-y] for EACH frame, in sheet pixels
+   Anchoring on the feet (not on the bounding box) is what keeps her the same
+   size and stops her sliding sideways when the wings open or she leans.
+   yPerFrame:false on the jump keeps the arc — that motion is drawn into
+   the sheet and must not be flattened out.                                   */
+const SHEETS = {
+  // FLY — she is airborne, so nothing needs planting. The artist drew a
+  // gentle left-right sway into the cycle; a single constant anchor keeps
+  // that sway instead of ironing it flat.
+  fly : { src:A.fly,  cols:4, rows:2, frames:8, fps:12, inset:1,
+          w:1986, h:792, ref:351, yPerFrame:true, refBottom:359.5,
+          restFrame:0,                      // wings-tucked pose to land on
+          anchors:[[230.4,359.5],[230.4,359.5],[230.4,359.5],[230.4,359.5],
+                   [230.4,359.5],[230.4,359.5],[230.4,359.5],[230.4,359.5]] },
+
+  // JUMP — 2x4 grid. Unlike the old sheet this one has NO arc drawn into it
+  // (every frame's feet sit at roughly the same height), so the hop is driven
+  // from code via `lift` below. The birds are placed all over their cells
+  // (feet swing across 182px), so X anchors on the bounding-box centre +25.25
+  // — the average feet-to-body offset of the grounded frames. That holds her
+  // body rock steady while still letting her lean.
+  jump: { src:A.jump, cols:2, rows:4, frames:8, fps:8, inset:3,
+          w:1086, h:1448, ref:343, yPerFrame:true, refBottom:347,
+          anchors:[[332.75,347],[233.75,346],[362.75,361],[274.25,343],
+                   [364.75,312],[266.25,361],[371.75,330],[262.75,345]],
+          //     stand prep  rise  rise  APEX  fall  land  stand
+          lift:  [0,   0.06, 0.46, 0.86, 1.00, 0.58, 0.02, 0] },
+  // TALK — 3x4 grid, 12 frames. Beautifully registered artwork: her feet sit
+  // within 2.5px across every frame, so per-frame feet anchoring keeps her
+  // planted with no wobble at all.
+  talk: { src:A.talk, cols:3, rows:4, frames:12, fps:7, inset:3,
+          w:1024, h:1536, ref:377, yPerFrame:true, refBottom:382,
+          anchors:[[186.5,380],[188.0,380],[186.5,380],
+                   [186.5,383],[187.5,383],[186.5,383],
+                   [188.5,383],[188.0,383],[187.5,383],
+                   [186.0,382],[186.0,382],[187.0,382]] }
+};
+
+/* ================= DOM ================= */
+const $ = id => document.getElementById(id);
+const stage=$('stage');
+const preBar=$('preBar'), preFill=$('preFill'), preTxt=$('preTxt');
+const startScreen=$('startScreen'), startBg=$('startBg'), startBtn=$('startBtn'), startBtnImg=$('startBtnImg'), tapHint=$('tapHint');
+const gameScreen=$('gameScreen'), gameBg=$('gameBg');
+const birdWrap=$('birdWrap'), birdA=$('birdA'), birdB=$('birdB'), shadowEl=$('shadow');
+const bubble=$('bubble'), bubbleText=$('bubbleText');
+const balanceEl=$('balance');
+const sitBird=$('sitBird'), stoneImg=$('stoneImg'), tableImg=$('tableImg');
+const arrowDown=$('arrowDown'), arrowUp=$('arrowUp'), handEl=$('hand'), handImg=$('handImg');
+const gateEl=$('gate'), gateL=$('gateL'), gateR=$('gateR'), gbL=$('gbL'), gbR=$('gbR');
+const sndBtn=$('sndBtn'), againBtn=$('againBtn');
+againBtn.addEventListener('click', ()=>{ SFX.pop(); restart(); });
+sndBtn.addEventListener('click', e=>{
+  e.stopPropagation();
+  audioOn(); startMusic(); warmUpSpeech(); SFX.chirp(.3);
+  later(()=>{ if(actx && actx.state==='running') sndBtn.hidden = true; }, 300);
+});
+const qbar=$('qbar'), qbarText=$('qbarText');   // draggables are resolved from THINGS
+const pBeam=$('pBeam'), pCol=$('pCol'), pBase=$('pBase'), pTrayL=$('pTrayL'), pTrayR=$('pTrayR'), hammerEl=$('hammer');
+const fx=$('fx'), fctx=fx.getContext('2d'), flash=$('flash');
+
+startBtn.style.left = LAYOUT.startBtn.x+'px';
+startBtn.style.top  = LAYOUT.startBtn.y+'px';
+startBtn.style.width  = LAYOUT.startBtn.w+'px';
+startBtn.style.height = LAYOUT.startBtn.h+'px';
+tapHint.style.top = (LAYOUT.startBtn.y - 66)+'px';
+
+/* ================= responsive scale =================
+   The game is a fixed 16:9 box (1920 x 1080). It is only ever scaled
+   uniformly to fit inside the window, so the aspect ratio is exact:
+   nothing is ever cropped or stretched. Whatever space is left over
+   is filled with a blurred copy of the current background.
+   ==================================================== */
+const backdrop = $('backdrop');
+
+function vp(){
+  const v = window.visualViewport;
+  return { w: (v?v.width:innerWidth), h: (v?v.height:innerHeight) };
+}
+const rotateEl = $('rotate');
+function fit(){
+  const {w,h} = vp();
+  const k = Math.min(w/1920, h/1080);         // contain — true 16:9, no crop
+  stage.style.transform = `translate(-50%,-50%) scale(${k})`;
+  // 48px dialogue at k<0.46 renders under ~22px — too small for a young
+  // reader. Only prompt in portrait, where turning the device actually helps.
+  rotateEl.classList.toggle('show', h > w && k < 0.46);
+}
+addEventListener('resize', fit);
+addEventListener('orientationchange', ()=>setTimeout(fit,120));
+window.visualViewport && visualViewport.addEventListener('resize', fit);
+fit();
+
+function setBackdrop(src){ backdrop.style.backgroundImage = `url("${srcFor(src)}")`; }
+
+/* =========================================================
+   PACE — one dial for how fast the whole game moves.
+   1 = the old speed. Higher = slower and gentler, for young kids.
+   It scales every wait, every tween, every WAAPI animation and every
+   cross-fade, so all the timing stays in step with itself.
+   ========================================================= */
+const PACE = 1.5;
+(function(){                       // every .animate() call slows with it
+  const orig = Element.prototype.animate;
+  Element.prototype.animate = function(kf, opts){
+    if(typeof opts === 'number') return orig.call(this, kf, opts*PACE);
+    if(opts && typeof opts.duration === 'number')
+      return orig.call(this, kf, Object.assign({}, opts, {duration:opts.duration*PACE}));
+    return orig.call(this, kf, opts);
+  };
+})();
+const later = (fn, ms) => setTimeout(fn, ms*PACE);
+
+/* ================= helpers ================= */
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const lerp =(a,b,t)=>a+(b-a)*t;
+const rand =(a,b)=>a+Math.random()*(b-a);
+const easeOutCubic = t => 1-Math.pow(1-t,3);
+const easeInOutCubic = t => t<.5 ? 4*t*t*t : 1-Math.pow(-2*t+2,3)/2;
+const easeOutBack = t => { const c1=1.70158,c3=c1+1; return 1+c3*Math.pow(t-1,3)+c1*Math.pow(t-1,2); };
+const wait = ms => new Promise(r=>setTimeout(r, ms*PACE));
+
+function loadImage(src){ return loadImageURL(encodeURI(src)); }
+function loadImageURL(url){
+  return new Promise((res,rej)=>{
+    const im=new Image();
+    im.onload=()=>res(im); im.onerror=()=>rej(new Error('missing: '+url));
+    im.src=url;
+  });
+}
+
+/* =========================================================
+   AUDIO  — everything is synthesised, no sound files needed
+   ========================================================= */
+let actx=null, master=null;
+function audioOn(){
+  if(!actx){
+    const AC = window.AudioContext||window.webkitAudioContext;
+    if(!AC) return;
+    try{ actx = new AC(); }catch(_){ return; }
+    master = actx.createGain(); master.gain.value=.9; master.connect(actx.destination);
+  }
+  if(actx.state !== 'running'){
+    try{ actx.resume(); }catch(_){}
+    /* resume() alone does not unlock Safari — it wants a sound actually
+       STARTED inside the gesture, so kick a one-sample silent buffer. */
+    try{
+      const src = actx.createBufferSource();
+      src.buffer = actx.createBuffer(1, 1, actx.sampleRate);
+      src.connect(master); src.start(0);
+    }catch(_){}
+  }
+}
+/* resume() is asynchronous. Anything scheduled at exactly currentTime while
+   the context is still waking up lands in the past and is dropped, which is
+   why the first effects went missing. A small lookahead fixes that. */
+const LOOKAHEAD = 0.025;
+const aNow = (t=0)=> actx.currentTime + t + LOOKAHEAD;
+function tone({f=440,f2=null,t=0,d=.25,type='sine',v=.25,curve='exp'}){
+  if(!actx || !master) return;
+  const now=aNow(t);
+  const o=actx.createOscillator(), g=actx.createGain();
+  o.type=type; o.frequency.setValueAtTime(f,now);
+  if(f2) o.frequency.exponentialRampToValueAtTime(Math.max(1,f2), now+d);
+  g.gain.setValueAtTime(0,now);
+  g.gain.linearRampToValueAtTime(v, now+Math.min(.03,d*.25));
+  if(curve==='exp') g.gain.exponentialRampToValueAtTime(.0001, now+d);
+  else g.gain.linearRampToValueAtTime(0, now+d);
+  o.connect(g); g.connect(master); o.start(now); o.stop(now+d+.05);
+}
+function noise({t=0,d=.4,v=.2,f0=400,f1=2600,q=1.1}){
+  if(!actx || !master) return;
+  const now=aNow(t);
+  const len=Math.ceil(actx.sampleRate*(d+.05));
+  const buf=actx.createBuffer(1,len,actx.sampleRate), ch=buf.getChannelData(0);
+  for(let i=0;i<len;i++) ch[i]=(Math.random()*2-1);
+  const s=actx.createBufferSource(); s.buffer=buf;
+  const bp=actx.createBiquadFilter(); bp.type='bandpass'; bp.Q.value=q;
+  bp.frequency.setValueAtTime(f0,now); bp.frequency.exponentialRampToValueAtTime(f1,now+d);
+  const g=actx.createGain();
+  g.gain.setValueAtTime(0,now); g.gain.linearRampToValueAtTime(v,now+.05);
+  g.gain.exponentialRampToValueAtTime(.0001, now+d);
+  s.connect(bp); bp.connect(g); g.connect(master); s.start(now); s.stop(now+d+.05);
+}
+const SFX = {
+  pop(){ tone({f:340,f2:1000,d:.16,type:'sine',v:.35}); tone({f:680,f2:1800,d:.12,type:'triangle',v:.16,t:.02}); },
+  whoosh(){ noise({d:.62,v:.16,f0:260,f1:3200,q:.9}); },
+  magic(){ [0,.07,.14,.21,.30].forEach((t,i)=>tone({f:[784,988,1175,1568,2093][i],d:.55,type:'sine',v:.16,t})); },
+  sparkle(){ [0,.06,.12,.19,.26,.34].forEach((t,i)=>tone({f:[1319,1568,1976,2349,2637,3136][i],d:.42,type:'sine',v:.12,t})); },
+  flap(){ noise({d:.16,v:.07,f0:900,f1:280,q:.7}); },
+  land(){ tone({f:170,f2:58,d:.28,type:'sine',v:.34}); noise({d:.24,v:.11,f0:900,f1:220,q:.8}); },
+  chirp(v=.22){ // one cheerful bird chirp
+    tone({f:1500,f2:2600,d:.09,type:'triangle',v});
+    tone({f:2100,f2:1500,d:.10,type:'triangle',v:v*.8,t:.09});
+  },
+  happy(){ // bird's happy little song
+    const s=[[1568,0],[1976,.10],[2349,.20],[2637,.30],[2093,.44]];
+    s.forEach(([f,t])=>{ tone({f,f2:f*1.28,d:.16,type:'triangle',v:.22,t}); });
+    tone({f:1046,f2:2093,d:.5,type:'sine',v:.10,t:.1});
+  },
+  blip(){ tone({f:rand(900,1200),f2:rand(1400,1800),d:.05,type:'square',v:.045}); },
+
+  /* --- the balance is wooden, so everything below is a wood body: a short
+         noisy transient plus a low resonant thunk that dies away fast --- */
+  woodThud(){                        // something heavy lands
+    noise({d:.09,v:.30,f0:2200,f1:420,q:1.4});
+    tone({f:150,f2:62,d:.34,type:'sine',v:.40});
+    tone({f:236,f2:150,d:.20,type:'triangle',v:.16,t:.005});
+  },
+  woodKnock(v=.30){                  // wood meeting wood
+    noise({d:.055,v:v*.7,f0:2600,f1:700,q:1.6});
+    tone({f:392,f2:196,d:.15,type:'triangle',v:v});
+    tone({f:262,f2:150,d:.20,type:'sine',v:v*.6,t:.004});
+  },
+  hammer(){                          // the mallet strike
+    noise({d:.04,v:.34,f0:3400,f1:900,q:1.2});
+    tone({f:1180,f2:420,d:.11,type:'triangle',v:.24});
+    tone({f:196,f2:78,d:.30,type:'sine',v:.36,t:.008});
+    tone({f:524,f2:300,d:.17,type:'triangle',v:.13,t:.012});
+  },
+  poof(){                            // the cartoon cloud
+    noise({d:.42,v:.15,f0:1500,f1:260,q:.55});
+    tone({f:520,f2:190,d:.26,type:'sine',v:.07});
+  },
+  chain(){                           // the pan's hook jingling on
+    [0,.045,.1,.15].forEach((t,i)=>
+      tone({f:[2100,2650,2350,3000][i],f2:[1500,1900,1700,2200][i],d:.13,type:'triangle',v:.10,t}));
+  },
+  magicAppear(){                     // something poofs into existence
+    [0,.06,.12,.19,.27,.36].forEach((t,i)=>
+      tone({f:[880,1175,1568,2093,2637,3136][i],d:.5,type:'sine',v:.14,t}));
+    noise({d:.5,v:.10,f0:600,f1:4200,q:.6});
+  },
+  vanish(){                          // ...and poofs back out
+    [0,.06,.12,.19,.27].forEach((t,i)=>
+      tone({f:[2637,2093,1568,1175,784][i],d:.4,type:'sine',v:.13,t}));
+    noise({d:.45,v:.10,f0:3800,f1:420,q:.6});
+  },
+  pick(){ tone({f:520,f2:1150,d:.12,type:'sine',v:.22}); tone({f:1300,d:.07,type:'triangle',v:.09,t:.03}); },
+  tap(){  tone({f:1500,f2:900,d:.07,type:'sine',v:.16}); },
+  stoneThud(){                       // a heavy rock landing in a wooden pan
+    noise({d:.13,v:.34,f0:1400,f1:200,q:1.1});
+    tone({f:118,f2:44,d:.44,type:'sine',v:.44});
+    tone({f:300,f2:150,d:.20,type:'triangle',v:.15,t:.006});
+  },
+  creak(){                           // the beam swinging on its pivot
+    if(!actx || !master) return;
+    const now=aNow(), o=actx.createOscillator(), g=actx.createGain(),
+          lfo=actx.createOscillator(), lg=actx.createGain();
+    o.type='sawtooth'; o.frequency.setValueAtTime(150,now);
+    o.frequency.exponentialRampToValueAtTime(96,now+.72);
+    lfo.frequency.value=13; lg.gain.value=26; lfo.connect(lg); lg.connect(o.frequency);
+    const bp=actx.createBiquadFilter(); bp.type='bandpass'; bp.Q.value=5.5; bp.frequency.value=560;
+    g.gain.setValueAtTime(0,now); g.gain.linearRampToValueAtTime(.10,now+.10);
+    g.gain.exponentialRampToValueAtTime(.0001,now+.78);
+    o.connect(bp); bp.connect(g); g.connect(master);
+    o.start(now); lfo.start(now); o.stop(now+.82); lfo.stop(now+.82);
+  },
+  whee(){ tone({f:520,f2:1320,d:.42,type:'triangle',v:.18}); tone({f:780,f2:1980,d:.36,type:'sine',v:.09,t:.04}); },
+  tada(){
+    [[523,0],[659,.11],[784,.22],[1047,.33],[1319,.33],[1568,.46]].forEach(([f,t])=>
+      tone({f,d:.85,type:'sine',v:.17,t}));
+    [0,.11,.22,.33].forEach((t,i)=>tone({f:[131,165,196,262][i],d:.7,type:'triangle',v:.09,t}));
+    noise({t:.33,d:.7,v:.10,f0:900,f1:5200,q:.5});
+  },
+  confettiPop(){                     // a party popper going off
+    noise({d:.12,v:.40,f0:4200,f1:700,q:.8});
+    tone({f:190,f2:1300,d:.12,type:'square',v:.17});
+    tone({f:900,f2:2500,d:.26,type:'triangle',v:.13,t:.02});
+    noise({t:.10,d:.75,v:.10,f0:2200,f1:5400,q:.5});   // paper fluttering down
+  },
+  cheer(){                           // a room full of happy children
+    if(!actx || !master) return;
+    const now=aNow(), dur=2.0;
+    const len=Math.ceil(actx.sampleRate*dur);
+    const buf=actx.createBuffer(1,len,actx.sampleRate), ch=buf.getChannelData(0);
+    for(let i=0;i<len;i++) ch[i]=Math.random()*2-1;
+    const src=actx.createBufferSource(); src.buffer=buf;
+    const bp=actx.createBiquadFilter(); bp.type='bandpass'; bp.Q.value=1.5;
+    bp.frequency.setValueAtTime(520,now);
+    bp.frequency.linearRampToValueAtTime(1500,now+.55);
+    bp.frequency.linearRampToValueAtTime(950,now+dur);
+    const g=actx.createGain();
+    g.gain.setValueAtTime(.0001,now);
+    g.gain.linearRampToValueAtTime(.24,now+.38);
+    g.gain.setValueAtTime(.24,now+1.15);
+    g.gain.exponentialRampToValueAtTime(.0001,now+dur);
+    src.connect(bp); bp.connect(g); g.connect(master);
+    src.start(now); src.stop(now+dur+.05);
+    // bright whoops riding on top
+    [0,.13,.27,.44,.62].forEach((t,i)=>
+      tone({f:[880,1175,1319,1568,1760][i], f2:[1046,1319,1568,1760,2093][i],
+            d:.75, type:'triangle', v:.09, t}));
+  },
+  gateSlide(){                       // two heavy panels rushing in
+    noise({d:.85,v:.20,f0:180,f1:1400,q:.5});
+    tone({f:70,f2:150,d:.8,type:'sine',v:.20});
+  },
+  gateClunk(){                       // ...and latching together
+    noise({d:.10,v:.34,f0:2600,f1:380,q:1.5});
+    tone({f:132,f2:52,d:.5,type:'sine',v:.44});
+    tone({f:330,f2:180,d:.24,type:'triangle',v:.18,t:.006});
+    tone({f:880,f2:520,d:.14,type:'triangle',v:.10,t:.02});
+  },
+  gateOpen(){                        // and swinging back out
+    noise({d:.8,v:.17,f0:1500,f1:220,q:.5});
+    [0,.10,.20,.32].forEach((t,i)=>tone({f:[784,1047,1319,1568][i],d:.55,type:'sine',v:.12,t}));
+  },
+  built(){                           // it's finished!
+    [0,.09,.18,.27,.40].forEach((t,i)=>
+      tone({f:[523,659,784,1047,1319][i],d:.62,type:'sine',v:.17,t}));
+    [0,.09,.18,.27].forEach((t,i)=>
+      tone({f:[262,330,392,523][i],d:.55,type:'triangle',v:.08,t}));
+  }
+};
+
+/* =========================================================
+   BACKGROUND MUSIC
+   A plain <audio> element rather than Web Audio, so it plays even where the
+   Web Audio graph is blocked. It sits at 30% and ducks right down whenever
+   the bird is speaking, so her words always sit on top of it.
+   ========================================================= */
+const BGM_ON = 0.30, BGM_DUCK = 0.07;
+const bgm = $('bgm');
+bgm.volume = 0;
+let bgmRaf=null, bgmStarted=false;
+
+function fadeBgm(to, ms){
+  if(bgmRaf) cancelAnimationFrame(bgmRaf);
+  const from = bgm.volume, t0 = performance.now();
+  (function step(now){
+    const k = clamp((now-t0)/ms, 0, 1);
+    bgm.volume = clamp(lerp(from, to, k), 0, 1);
+    if(k<1) bgmRaf = requestAnimationFrame(step); else bgmRaf = null;
+  })(t0);
+}
+function startMusic(){
+  if(bgmStarted) return;
+  bgmStarted = true;
+  bgm.volume = 0;
+  const pr = bgm.play();
+  if(pr && pr.catch) pr.catch(()=>{ bgmStarted = false; });   // let a later tap retry
+  fadeBgm(BGM_ON, 1200);
+}
+const duckMusic   = ()=> fadeBgm(BGM_DUCK, 240);
+const unduckMusic = ()=> fadeBgm(BGM_ON,   900);
+
+/* =========================================================
+   RECORDED SOUND EFFECTS
+   Played through <audio> like the music, so they work even where the
+   synthesised Web Audio effects are blocked. Each name keeps a small pool of
+   elements so two can overlap — the round's two objects appear 180ms apart.
+   ========================================================= */
+const SFX_FILES = {          // Ogg/Opus — see the note beside <audio id="bgm">
+  appear : 'sounds/things appear sound.ogg'
+};
+const sfxPool = {};
+function makeClip(name){
+  const path = SFX_FILES[name];
+  const a = new Audio(srcFor(path));
+  // a blob is already in memory so 'auto' costs nothing; without one we must
+  // not let the element download behind the preloader's back
+  a.preload = blobFor[path] ? 'auto' : 'none';
+  withBlobFallback(a, path);
+  return a;
+}
+function sfxPlay(name, vol=0.9){
+  if(!SFX_FILES[name]) return;
+  let pool = sfxPool[name] || (sfxPool[name] = []);
+  let a = pool.find(x => x.paused || x.ended);
+  if(!a){
+    if(pool.length >= 4) a = pool[0];            // reuse the oldest
+    else { a = makeClip(name); pool.push(a); }
+  }
+  a.volume = clamp(vol, 0, 1);
+  try{ a.currentTime = 0; }catch(_){}
+  const pr = a.play();
+  if(pr && pr.catch) pr.catch(()=>{});
+}
+
+/* ---- voice ---- */
+/* Speech is a nicety, never a dependency. Every entry point below is wrapped,
+   because `window.speechSynthesis` can exist and still throw on access in
+   locked-down browsers and some embedded webviews — and an uncaught throw here
+   runs at module scope, which would kill the whole game before it renders. */
+let voice=null, speechBroken=false, speechMute=false, speechEverFired=false;
+function synth(){
+  if(speechBroken) return null;
+  try{
+    const s = window.speechSynthesis;
+    if(!s || typeof s.speak !== 'function') { speechBroken = true; return null; }
+    return s;
+  }catch(_){ speechBroken = true; return null; }
+}
+function pickVoice(){
+  const sp = synth(); if(!sp) return null;
+  let vs = [];
+  try{ vs = sp.getVoices?.() || []; }catch(_){ speechBroken = true; return null; }
+  if(!vs.length) return null;
+  if(!vs.length) return null;
+  const want=['samantha','karen','tessa','moira','victoria','google uk english female','google us english','zira','fiona','nicky','allison','ava'];
+  for(const w of want){ const v=vs.find(v=>v.name.toLowerCase().includes(w)); if(v) return v; }
+  return vs.find(v=>/en(-|_)/i.test(v.lang)) || vs[0];
+}
+try{
+  const sp = synth();
+  if(sp){
+    voice = pickVoice();
+    sp.onvoiceschanged = ()=>{ try{ voice = pickVoice(); }catch(_){} };
+  }
+}catch(_){ speechBroken = true; }
+/* onWord(charIndex, charLength) fires as each word is actually spoken, so the
+   text on screen can appear in step with the voice rather than on a guess. */
+/* Browsers only let the speech engine start from a user gesture, and some
+   won't hand over the voice list until they feel like it. This runs inside
+   the very first tap and gets both out of the way. */
+let speechArmed=false, curUtter=null;
+function warmUpSpeech(){
+  const sp = synth(); if(!sp) return;
+  try{
+    sp.getVoices();
+    const u=new SpeechSynthesisUtterance(' ');
+    u.volume=0; u.rate=1;
+    curUtter=u;
+    sp.speak(u);                   // unlocks the engine while the tap is live
+    speechArmed=true;
+  }catch(_){ speechBroken = true; }
+}
+function voicesReady(){
+  return new Promise(res=>{
+    const sp = synth();
+    if(!sp) return res();                       // no engine: carry on regardless
+    try{
+      if((sp.getVoices()||[]).length) return res();
+      let n=0;
+      const t=setInterval(()=>{
+        let has=0;
+        try{ has=(sp.getVoices()||[]).length; }catch(_){ speechBroken=true; clearInterval(t); return res(); }
+        if(has || ++n>25){ clearInterval(t); res(); }
+      }, 100);
+      sp.addEventListener('voiceschanged', ()=>{ clearInterval(t); res(); }, {once:true});
+    }catch(_){ speechBroken = true; res(); }    // never leave this promise pending
+  });
+}
+/* if the browser suspends things, bring audio back on the next interaction */
+function nudgeAudio(){
+  audioOn();
+  if(bgmStarted && bgm.paused){ const pr=bgm.play(); if(pr&&pr.catch) pr.catch(()=>{}); }
+  try{ const sp=synth(); if(sp && sp.paused) sp.resume(); }catch(_){}
+}
+['pointerdown','keydown','touchstart'].forEach(ev=>
+  window.addEventListener(ev, nudgeAudio, {passive:true}));
+document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) nudgeAudio(); });
+
+async function speak(text, onWord){
+  const est = 900 + text.length*95;
+
+  // No engine, a broken one, or one we have already learned is silent: go
+  // straight to the timed path rather than arming a long safety net per line.
+  if(speechMute || !synth()) return wait(est/PACE);
+
+  if(!speechArmed) warmUpSpeech();
+  await voicesReady();
+  if(speechBroken) return wait(est/PACE);
+  if(!voice) voice=pickVoice();
+
+  return new Promise(res=>{
+    let done=false, heard=false;
+    const finish=()=>{ if(done)return; done=true; res(); };
+    const alive=()=>{ heard=true; speechEverFired=true; };
+    const sp = synth();
+    if(!sp){ finish(); return; }
+    try{
+      if(sp.speaking || sp.pending) sp.cancel();
+      if(sp.paused) sp.resume();
+      const u=new SpeechSynthesisUtterance(text);
+      curUtter=u;                    // hold a reference: some engines drop it otherwise
+      if(voice) u.voice=voice;
+      u.lang = (voice && voice.lang) || 'en-US';
+      u.rate=.66; u.pitch=1.5; u.volume=1;   // slow and clear for young ears
+      u.onstart = alive;
+      if(onWord) u.onboundary = e=>{
+        alive();
+        if(e.name && e.name!=='word') return;
+        if(typeof e.charIndex === 'number') onWord(e.charIndex, e.charLength);
+      };
+      u.onend=()=>{ alive(); finish(); };
+      u.onerror=finish;
+      sp.speak(u);
+      // Until an utterance has ever reported back, keep the net short — a
+      // silent engine would otherwise make every single line wait it out.
+      const net = speechEverFired ? est+6000 : Math.min(est, 2200);
+      setTimeout(()=>{
+        if(!heard && !speechEverFired) speechMute = true;   // learn it once
+        finish();
+      }, net);
+    }catch(e){ speechBroken = true; setTimeout(finish, est); }
+  });
+}
+
+/* =========================================================
+   PARTICLE FX
+   ========================================================= */
+const P=[];
+const Ppush = o => { P.push(o); fxWake(); };   // any spawn wakes the parked loop
+function spawnStar(x,y,opt={}){
+  Ppush({k:'star',x,y,
+    vx:rand(-1.9,1.9), vy:rand(-3.4,-.6), g:opt.g??.012,
+    life:0, max:rand(52,96), sz:rand(9,22), rot:rand(0,6.28), vr:rand(-.11,.11),
+    hue:opt.hue ?? [48,52,340,190,120][ (Math.random()*5)|0 ]});
+}
+function spawnDust(x,y){
+  Ppush({k:'dust',x,y,vx:rand(-4.2,4.2),vy:rand(-2.6,-.4),g:.14,life:0,max:rand(26,44),sz:rand(6,17)});
+}
+function burst(x,y,n=34,spread=1){
+  for(let i=0;i<n;i++){
+    const a=rand(0,6.283), s=rand(1.4,7.4)*spread;
+    Ppush({k:'star',x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-1.4,g:.05,
+            life:0,max:rand(40,88),sz:rand(10,26),rot:rand(0,6.28),vr:rand(-.16,.16),
+            hue:[48,52,340,190,120,25][(Math.random()*6)|0]});
+  }
+}
+function ringWave(x,y,color='#fff'){ Ppush({k:'ring',x,y,life:0,max:34,color}); }
+
+/* paper confetti: little rectangles that tumble and flutter as they fall */
+const CONFETTI_COLS = ['#FF4D6D','#FFC53D','#4CC9F0','#7BE495','#B892FF','#FF9F1C','#FF6FA5'];
+function spawnConfetti(x, y, vx, vy){
+  Ppush({k:'conf', x, y, vx, vy, g:0.17,
+          life:0, max:rand(150,260),
+          w:rand(11,21), h:rand(15,29),
+          rot:rand(0,6.283), vr:rand(-.22,.22),
+          sway:rand(.04,.12), phase:rand(0,6.283),
+          col:CONFETTI_COLS[(Math.random()*CONFETTI_COLS.length)|0]});
+}
+function confettiBurst(n=100){
+  for(let i=0;i<n;i++)
+    spawnConfetti(rand(-60,1980), rand(-320,-20), rand(-2.6,2.6), rand(1,5));
+}
+
+/* fat cartoon poof-clouds — several blobs per puff so they read as clouds */
+function spawnCloud(x,y,opt={}){
+  const n=3+((Math.random()*3)|0), blobs=[];
+  for(let i=0;i<n;i++) blobs.push([rand(-.7,.7), rand(-.55,.45), rand(.5,1.0)]);
+  Ppush({k:'cloud',x,y,vx:opt.vx??rand(-1.4,1.4),vy:opt.vy??rand(-1.5,-.2),g:-.008,
+          life:0,max:rand(34,58),sz:opt.sz??rand(26,46),blobs});
+}
+function cloudBurst(x,y,n=10,spread=1){
+  for(let i=0;i<n;i++){
+    const a=rand(-Math.PI,0), sp=rand(1.6,5.4)*spread;
+    spawnCloud(x+rand(-24,24), y+rand(-12,12),
+               {vx:Math.cos(a)*sp*1.5, vy:Math.sin(a)*sp*.55, sz:rand(24,52)});
+  }
+}
+
+function drawStar(c,x,y,r,rot,color,alpha){
+  c.save(); c.translate(x,y); c.rotate(rot); c.globalAlpha=alpha;
+  c.fillStyle=color; c.shadowColor=color; c.shadowBlur=r*1.5;
+  c.beginPath();
+  for(let i=0;i<4;i++){
+    const a=i*Math.PI/2;
+    c.quadraticCurveTo(Math.cos(a+.785)*r*.24, Math.sin(a+.785)*r*.24,
+                       Math.cos(a+1.571)*r,    Math.sin(a+1.571)*r);
+  }
+  c.closePath(); c.fill(); c.restore();
+}
+
+let idleSparkle=false, idleT=0;
+function setIdleSparkle(v){ idleSparkle=v; if(v) fxWake(); }
+/* The canvas used to clear and repaint 1920x1080 every frame forever, even
+   with nothing on it. It now parks when the particle list is empty and no idle
+   sparkles are due, and any spawn wakes it again. */
+let fxRaf=null, fxDirty=false;
+function fxWake(){ if(!fxRaf) fxRaf = requestAnimationFrame(fxLoop); }
+function fxLoop(){
+  fxRaf = null;
+  if(!P.length && !idleSparkle){
+    if(fxDirty){ fctx.clearRect(0,0,1920,1080); fxDirty=false; }
+    return;                                   // nothing to draw: stop asking for frames
+  }
+  fctx.clearRect(0,0,1920,1080);
+  fxDirty = true;
+  if(idleSparkle && ++idleT%9===0) spawnStar(rand(60,1860), rand(80,1030), {g:-.004});
+  for(let i=P.length-1;i>=0;i--){
+    const p=P[i]; p.life++;
+    if(p.life>p.max){ P.splice(i,1); continue; }
+    const t=p.life/p.max;
+    if(p.k==='conf'){
+      p.vy = Math.min(p.vy + p.g, 11);
+      p.x += p.vx + Math.sin(p.life*p.sway + p.phase)*1.9;
+      p.y += p.vy;
+      p.rot += p.vr;
+      const flat = Math.abs(Math.cos(p.life*p.sway*1.8 + p.phase));  // it flips edge-on
+      fctx.save();
+      fctx.globalAlpha = t>.85 ? (1-t)/.15 : 1;
+      fctx.translate(p.x, p.y); fctx.rotate(p.rot);
+      fctx.fillStyle = p.col;
+      fctx.fillRect(-p.w/2, -p.h*flat/2, p.w, p.h*flat);
+      fctx.restore();
+      if(p.y > 1160) P.splice(i,1);
+      continue;
+    }
+    if(p.k==='ring'){
+      const r=lerp(20,340,easeOutCubic(t));
+      fctx.save(); fctx.globalAlpha=(1-t)*.75; fctx.strokeStyle=p.color;
+      fctx.lineWidth=lerp(22,1,t); fctx.beginPath(); fctx.arc(p.x,p.y,r,0,6.283); fctx.stroke(); fctx.restore();
+      continue;
+    }
+    p.vy+=p.g; p.x+=p.vx; p.y+=p.vy; p.vx*=.985; p.vy*=.985;
+    if(p.k==='cloud'){
+      const r=p.sz*(.55+easeOutCubic(t)*1.35);
+      fctx.save(); fctx.globalAlpha=(1-t)*(1-t)*.9; fctx.fillStyle='#ffffff';
+      for(const o of p.blobs){
+        fctx.beginPath(); fctx.arc(p.x+o[0]*r, p.y+o[1]*r, r*o[2], 0, 6.283); fctx.fill();
+      }
+      fctx.restore();
+      continue;
+    }
+    if(p.k==='dust'){
+      fctx.save(); fctx.globalAlpha=(1-t)*.55; fctx.fillStyle='#D9B47C';
+      fctx.beginPath(); fctx.arc(p.x,p.y,p.sz*(1+t*.9),0,6.283); fctx.fill(); fctx.restore();
+    }else{
+      p.rot+=p.vr;
+      const tw = .55+.45*Math.sin(p.life*.35);
+      const s  = p.sz * (t<.18 ? easeOutBack(t/.18) : 1-(t-.18)/.82*.55) * tw;
+      drawStar(fctx,p.x,p.y,Math.max(0,s),p.rot,`hsl(${p.hue} 100% ${p.hue===48||p.hue===52?68:72}%)`, (1-t)*.95);
+    }
+  }
+  fxWake();
+}
+fxWake();
+
+/* =========================================================
+   SPRITE SHEET RENDERER
+   Each frame is positioned by the bird's FEET, so the artwork lines up
+   perfectly across all three sheets: same height, same spot on the ground.
+   Two stacked layers let one sheet cross-fade into the next instead of
+   cutting hard.
+   ========================================================= */
+function prepSheet(cfg, img){
+  cfg.img = img;
+  cfg.fw = img.naturalWidth  / cfg.cols;
+  cfg.fh = img.naturalHeight / cfg.rows;
+  // If the artwork was swapped for a different-sized file the baked-in
+  // measurements no longer apply — fall back to something sane.
+  if(img.naturalWidth !== cfg.w || img.naturalHeight !== cfg.h){
+    console.warn('sheet changed size, using fallback anchors:', cfg.src);
+    cfg.ref = cfg.fh*0.85;
+    cfg.refBottom = cfg.fh*0.93;
+    cfg.anchors = Array.from({length:cfg.frames}, ()=>[cfg.fw*0.5, cfg.fh*0.93]);
+    cfg.inset = 2;
+  }
+}
+
+/* Draw sheet `s` frame `i` into layer `el`, anchored on the feet.
+   The artwork in these sheets runs right up to the cell edges — on the jump
+   sheet one bird's feet and the next one's cap are adjacent pixels — so when
+   the browser resamples, a sliver of the neighbouring frame shows through.
+   `inset` trims a few source pixels off every edge to make that impossible,
+   and the window is positioned in exact pixels rather than percentages
+   (which also handles the talk sheet's fractional 341.33px frame cleanly). */
+function paint(el, s, i, H){
+  const k  = (H||BIRD_H) / s.ref;
+  const e  = s.inset || 0;
+  const a  = s.anchors[i] || s.anchors[0];
+  const ax = (a[0]-e)*k;                               // feet x inside the layer
+  const ay = ((s.yPerFrame ? a[1] : s.refBottom)-e)*k;  // feet y inside the layer
+  const col=i%s.cols, row=(i/s.cols)|0;
+  el.style.width  = ((s.fw-2*e)*k)+'px';
+  el.style.height = ((s.fh-2*e)*k)+'px';
+  el.style.left   = (-ax)+'px';
+  el.style.top    = (-ay)+'px';
+  el.style.transformOrigin = ax+'px '+ay+'px';
+  el.style.backgroundSize     = (s.img.naturalWidth*k)+'px '+(s.img.naturalHeight*k)+'px';
+  el.style.backgroundPosition = (-(col*s.fw + e)*k)+'px '+(-(row*s.fh + e)*k)+'px';
+}
+
+/* ================= bird ================= */
+const bird = {
+  cur:null, frame:0, playing:false, raf:null, acc:0, last:0, loop:true, onDone:null,
+  x:0, y:0, scale:1, rot:0, sqX:1, sqY:1, groundGap:0, h:BIRD_H,
+
+  /* switch sheets with a cross-fade so there is no visible cut */
+  swap(name, {loop=true, onDone=null, frame=0, fade=170, height=null}={}){
+    const s = SHEETS[name], prev = this.cur, prevFrame = this.frame, prevH = this.h;
+    fade *= PACE;
+    if(height) this.h = height;
+    const crossing = prev && prev!==s && fade>0;
+
+    if(crossing){                       // park the outgoing pose on the back layer
+      layerOn(birdB, 'opacity, transform');
+      birdB.style.transition='none';
+      birdB.style.backgroundImage=`url("${srcFor(prev.src)}")`;
+      paint(birdB, prev, prevFrame, prevH);
+      birdB.style.opacity='1';
+      void birdB.offsetWidth;
+      birdB.style.transition=`opacity ${fade}ms ease-in-out`;
+      birdB.style.opacity='0';
+    }
+
+    this.cur=s; this.loop=loop; this.onDone=onDone; this.acc=0;
+    birdA.style.transition='none';
+    birdA.style.backgroundImage=`url("${srcFor(s.src)}")`;
+    this.setFrame(frame);
+    if(crossing){
+      birdA.style.opacity='0';
+      void birdA.offsetWidth;
+      birdA.style.transition=`opacity ${fade}ms ease-in-out`;
+      birdA.style.opacity='1';
+    }else{
+      birdA.style.opacity='1';
+    }
+    if(crossing) later(()=>layerOff(birdB), fade/PACE + 60);
+    this.syncEl();
+  },
+
+  setFrame(i){ if(!this.cur) return; this.frame=i; paint(birdA, this.cur, i, this.h); },
+
+  play(){ if(this.playing) return; this.playing=true; this.last=performance.now(); this.raf=requestAnimationFrame(bird.tick); },
+  stop(){ this.playing=false; if(this.raf) cancelAnimationFrame(this.raf); this.raf=null; },
+
+  tick(now){
+    if(!bird.playing) return;
+    const s=bird.cur;
+    bird.acc += now-bird.last; bird.last=now;
+    const step=1000/s.fps;
+    while(bird.acc>=step){
+      bird.acc-=step;
+      let n=bird.frame+1;
+      if(n>=s.frames){
+        if(bird.loop) n=0;
+        else { bird.stop(); bird.setFrame(s.frames-1); const cb=bird.onDone; bird.onDone=null; cb&&cb(); return; }
+      }
+      bird.setFrame(n);
+    }
+    bird.raf=requestAnimationFrame(bird.tick);
+  },
+
+  at(footX,footY){ this.x=footX; this.y=footY; this.syncEl(); },
+
+  syncEl(){
+    birdWrap.style.transform = `translate3d(${this.x}px, ${this.y}px, 0)`;
+    const t = `rotate(${this.rot}deg) scale(${this.scale*this.sqX}, ${this.scale*this.sqY})`;
+    birdA.style.transform = t;
+    birdB.style.transform = t;   // same transform, but each layer spins about its own feet
+    const gap = this.groundGap||0;
+    const sw  = 230*this.scale*clamp(1.05-gap/480,.32,1.1);
+    shadowEl.style.width=sw+'px'; shadowEl.style.height=(sw*.22)+'px';
+    shadowEl.style.opacity = clamp(.9-gap/520,0,.9);
+    shadowEl.style.transform=`translate3d(${this.x-sw/2}px, ${LAYOUT.bird.footY-sw*.11}px, 0)`;
+  }
+};
+
+/* Compositing hygiene. Every hidden sprite still held a live GPU layer via
+   `will-change`, and with 16 draggables plus the gate, arrows and hand that
+   is a lot of texture memory for things nobody can see — enough for a browser
+   to start evicting textures and paint real content blank. Hiding with
+   `visibility:hidden` AND dropping `will-change` releases the layer. */
+function layerOff(el){
+  if(!el) return;
+  el.style.visibility = 'hidden';
+  el.style.willChange = 'auto';
+}
+function layerOn(el, hint='transform, opacity'){
+  if(!el) return;
+  el.style.visibility = 'visible';
+  el.style.willChange = hint;
+}
+
+/* =========================================================
+   PRELOADER
+   Every asset is fetched with a streaming reader so progress is byte
+   accurate, weighted by the real on-disk sizes below and refined by
+   Content-Length as each response arrives. Fetched bytes become blob: URLs,
+   so "loaded" means the file is genuinely local — nothing re-downloads when
+   the game asks for it.
+
+   Nothing here may ever block the game: a failed, stalled or aborted
+   transfer (or file://, where fetch is not allowed at all) simply counts as
+   done and that element keeps its original URL.
+   ========================================================= */
+const ASSET_BYTES = {   // real on-disk sizes, generated from the files
+  "game assets/handNudge.webp": 6552,
+  "weight machine/mid part of weight machine.webp": 8614,
+  "weight machine/whole weight stand.webp": 12620,
+  "bird/bird sit in balanced.webp": 12934,
+  "game assets/startbutton.webp": 14012,
+  "weight machine/weight tray.webp": 15484,
+  "weight machine/weight tray holder.webp": 17546,
+  "game assets/table.webp": 23056,
+  "sounds/things appear sound.ogg": 42619,
+  "game assets/stone.webp": 51330,
+  "game assets/background game.webp": 66020,
+  "game assets/pencil.webp": 71358,
+  "game assets/question bar.webp": 81960,
+  "game assets/green ball.webp": 102858,
+  "things/apple.webp": 108784,
+  "game assets/eraser.webp": 113894,
+  "game assets/football.webp": 116088,
+  "game assets/transition gate.webp": 117972,
+  "game assets/feather.webp": 119870,
+  "game assets/book.webp": 125216,
+  "game assets/toy elephant .webp": 128930,
+  "game assets/toy dog.webp": 134716,
+  "things/watermellon.webp": 148560,
+  "game assets/lunch box.webp": 155456,
+  "game assets/laptop.webp": 162270,
+  "game assets/toy bus.webp": 166364,
+  "game assets/toy bike.webp": 180748,
+  "game assets/mobile.webp": 185990,
+  "game assets/start screen.webp": 200038,
+  "bird/bird happy jump .webp": 239216,
+  "bird/flying bird sprite sheet.webp": 270606,
+  "bird/bird talking stand sprite sheet.webp": 329302,
+  "sounds/bg music.ogg": 2975868
+};
+
+const PRELOAD_CONCURRENCY = 5;
+const PRELOAD_TIMEOUT_MS  = 20000;      // per transfer, then we move on
+const BGM_SRC = 'sounds/bg music.ogg';
+
+const blobFor = {};        // path -> blob: URL (absent if the fetch failed)
+
+function preloadOrder(){
+  const paths = new Set([...Object.values(A), ...Object.values(SFX_FILES), BGM_SRC]);
+  // the start screen and its button decide the first paint, so they lead;
+  // everything else smallest-first, which puts the 3MB music last on its own
+  const lead = [A.startBg, A.startBtn];
+  return [...paths].sort((a,b)=>{
+    const la = lead.indexOf(a), lb = lead.indexOf(b);
+    if(la>=0 || lb>=0) return (la<0?99:la) - (lb<0?99:lb);
+    return (ASSET_BYTES[a]||250000) - (ASSET_BYTES[b]||250000);
+  });
+}
+
+async function preloadAll(onProgress, onAsset){
+  const queue  = preloadOrder();
+  const weight = {};                       // best known size per path
+  queue.forEach(p => weight[p] = ASSET_BYTES[p] || 250000);
+  const got = {};                          // bytes received per path
+  let shown = 0;                           // the bar only ever goes forwards
+
+  const tick = ()=>{
+    const total = queue.reduce((n,p)=>n+weight[p], 0);
+    const done  = queue.reduce((n,p)=>n+Math.min(got[p]||0, weight[p]), 0);
+    const pct   = total ? Math.min(100, done/total*100) : 100;
+    if(pct > shown) shown = pct;
+    onProgress(shown);
+  };
+
+  async function one(path){
+    const ac = new AbortController();
+    const bail = setTimeout(()=>ac.abort(), PRELOAD_TIMEOUT_MS);
+    try{
+      const res = await fetch(encodeURI(path), {signal:ac.signal, cache:'force-cache'});
+      if(!res.ok) throw new Error(res.status);
+      const len = +res.headers.get('content-length');
+      if(len > 0) weight[path] = len;      // refine the estimate with the truth
+      if(!res.body || !res.body.getReader){
+        const b = await res.blob();
+        got[path] = weight[path];
+        blobFor[path] = URL.createObjectURL(b);
+      }else{
+        const reader = res.body.getReader();
+        const parts = []; let n = 0;
+        for(;;){
+          const {done, value} = await reader.read();
+          if(done) break;
+          parts.push(value); n += value.length;
+          got[path] = n; tick();
+        }
+        weight[path] = Math.max(weight[path], n);
+        got[path] = weight[path];
+        blobFor[path] = URL.createObjectURL(
+          new Blob(parts, {type: res.headers.get('content-type') || ''}));
+      }
+      try{ onAsset && onAsset(path); }catch(_){}
+    }catch(_){
+      got[path] = weight[path];            // failures never hold the bar back
+    }finally{
+      clearTimeout(bail);
+      tick();
+    }
+  }
+
+  let next = 0;
+  const worker = async ()=>{ while(next < queue.length) await one(queue[next++]); };
+  await Promise.all(Array.from({length:Math.min(PRELOAD_CONCURRENCY, queue.length)}, worker));
+  onProgress(100);
+}
+
+/* use the local copy if we got one, otherwise the original URL, and always
+   leave a one-shot fallback in case the blob itself fails to decode */
+function srcFor(path){ return blobFor[path] || encodeURI(path); }
+/* point an element at its preloaded copy, with a one-shot revert armed */
+function setImg(el, key){
+  const path = A[key];
+  el.src = (images[key] && images[key].src) || srcFor(path);
+  withBlobFallback(el, path);
+}
+function withBlobFallback(el, path){
+  if(!blobFor[path]) return;
+  el.addEventListener('error', function once(){
+    el.removeEventListener('error', once);
+    el.src = encodeURI(path);
+    if(el.tagName === 'AUDIO' && !el.paused) el.play().catch(()=>{});
+  });
+}
+
+/* =========================================================
+   BOOT
+   ========================================================= */
+let images={};
+async function boot(){
+  // the button is already hidden in markup; park the bar where it sits
+  const b = LAYOUT.startBtn;
+  const PB_W = 420;
+  preBar.style.width = PB_W+'px';
+  preBar.style.left  = (b.x + b.w/2 - PB_W/2)+'px';   // centred on the button
+  preBar.style.top   = (b.y + b.h/2 - 56)+'px';
+
+  // ---- fetch everything, byte by byte ----
+  await preloadAll(pct=>{
+    const p = Math.round(pct);
+    preFill.style.width = p+'%';
+    preTxt.textContent  = 'LOADING '+p+'%';
+  }, path=>{
+    // the two lead assets paint the start screen straight away, so the bar
+    // fills over the real artwork rather than an empty stage
+    if(path===A.startBg){
+      startBg.src = srcFor(A.startBg); withBlobFallback(startBg, A.startBg);
+      setBackdrop(A.startBg);
+    }
+    if(path===A.startBtn){
+      startBtnImg.src = srcFor(A.startBtn); withBlobFallback(startBtnImg, A.startBtn);
+    }
+  });
+
+  // decode from the local copies; a failure here still resolves so one bad
+  // image can never strand the loading screen
+  const keys = Object.keys(A);
+  await Promise.all(keys.map(async k=>{
+    try{ images[k] = await loadImageURL(srcFor(A[k])); }
+    catch(_){ try{ images[k] = await loadImage(A[k]); }catch(__){ images[k] = new Image(); } }
+  }));
+
+  setBackdrop(A.startBg);
+  setImg(startBg, 'startBg');
+  setImg(startBtnImg, 'startBtn');
+  setImg(gameBg, 'gameBg');
+  setImg(handImg, 'hand');
+
+  // ---- audio plays from the preloaded copies too ----
+  bgm.src = srcFor(BGM_SRC);  withBlobFallback(bgm, BGM_SRC);
+  for(const name in SFX_FILES) sfxPool[name] = [makeClip(name)];
+
+  setImg(pBeam.querySelector('img'), 'beam');
+  setImg(pCol .querySelector('img'), 'col');
+  setImg(pBase.querySelector('img'), 'base');
+  setImg(pTrayL.querySelector('img'), 'tray');
+  setImg(pTrayR.querySelector('img'), 'tray');
+  setImg(tableImg, 'table');
+  setImg(stoneImg, 'stone');
+  setImg(sitBird,  'sitBird');
+  place(tableImg, SC3.table.x, SC3.table.y, SC3.table.w, SC3.table.h);
+  place(stoneImg, SC3.stone0.x, SC3.stone0.y, SC3.stone0.w, SC3.stone0.h);
+  place(sitBird,  0, 0, SC3.sitPan.w, SC3.sitPan.h);
+
+  setImg(gateL, 'gate');  setImg(gateR, 'gate');
+  setGate(0);
+  setImg(qbar.querySelector('img'), 'qbar');
+  place(qbar, SC4.qbar.x, SC4.qbar.y, SC4.qbar.w, SC4.qbar.h);
+  Object.assign(qbarText.style, {
+    left:SC4.well.x+'px', top:SC4.well.y+'px',
+    width:SC4.well.w+'px', height:SC4.well.h+'px'
+  });
+  Object.values(THINGS).forEach(t=>{
+    t.el = $(t.img);
+    setImg(t.el, t.src);
+    place(t.el, t.home.x, t.home.y, t.w, t.h);
+  });
+  clipBirdToRim();
+  layoutBalance();
+
+  prepSheet(SHEETS.fly,  images.fly);
+  prepSheet(SHEETS.jump, images.jump);
+  prepSheet(SHEETS.talk, images.talk);
+
+  await wait(200);
+  revealStart();
+}
+
+/* The play button has three independent ways to appear — the preload
+   finishing, boot throwing, or the watchdog below — so a stalled asset can
+   never leave a child stuck watching a loading bar. */
+let revealed = false;
+function revealStart(){
+  if(revealed) return;
+  revealed = true;
+  clearTimeout(readyWatch);
+  preFill.style.width = '100%';
+  preTxt.textContent  = 'LOADING 100%';
+  preBar.hidden   = true;
+  startBtn.hidden = false;
+  tapHint.hidden  = false;
+  assetsReady     = true;
+  startBtn.animate([{transform:'scale(0)',   opacity:0},
+                    {transform:'scale(1.18)',opacity:1, offset:.62},
+                    {transform:'scale(1)',   opacity:1}],
+                   {duration:620, easing:'cubic-bezier(.34,1.56,.64,1)'});
+  sfxPlay('appear', .7);
+  if(pendingStart) onStart(pendingStart);      // someone tried to start early
+}
+const readyWatch = setTimeout(revealStart, 45000);
+
+/* =========================================================
+   SCENE 1 → 2 transition
+   ========================================================= */
+let started=false, assetsReady=false, pendingStart=null;
+function onStart(e){
+  if(started) return;
+  if(!assetsReady){ pendingStart = e || {}; return; }   // keyboard/programmatic too
+  started=true;
+  e && e.preventDefault();
+  audioOn();
+  startMusic();
+  warmUpSpeech();      // must happen inside the gesture, or nothing will speak
+  // if the browser still hasn't let us through, offer a way to retry
+  later(()=>{
+    if(!actx || actx.state !== 'running') sndBtn.hidden = false;
+  }, 1400);
+
+  const cx = LAYOUT.startBtn.x + LAYOUT.startBtn.w/2;
+  const cy = LAYOUT.startBtn.y + LAYOUT.startBtn.h/2;
+
+  SFX.pop(); SFX.magic();
+  tapHint.style.transition='opacity .2s'; tapHint.style.opacity='0';
+  startBtn.style.animation='none';
+  // a plain press-in and back; the whole start screen fades a moment later,
+  // so the button doesn't need to shrink itself away
+  startBtn.animate(
+    [{transform:'scale(1)'},{transform:'scale(.93)'},{transform:'scale(1)'}],
+    {duration:300, easing:'ease-out', fill:'forwards'});
+
+  burst(cx,cy,44,1.25); ringWave(cx,cy,'#FFE9A8'); 
+  later(()=>ringWave(cx,cy,'#8FE3FF'),110);
+
+  later(()=>{ SFX.whoosh(); irisIn(cx,cy); }, 300);
+}
+/* One guarded entry point, three ways in: tapping anywhere on the screen,
+   clicking the button, and Enter/Space on the focused button. `onStart` is
+   idempotent, so extra events are harmless. */
+startScreen.addEventListener('pointerdown', onStart, {passive:false});
+startBtn.addEventListener('click', e=>{ e.stopPropagation(); onStart(e); });
+startBtn.addEventListener('keydown', e=>{
+  if(e.key==='Enter' || e.key===' ' || e.key==='Spacebar'){ e.preventDefault(); onStart(e); }
+});
+
+function irisIn(cx,cy){
+  const R = Math.hypot(Math.max(cx,1920-cx), Math.max(cy,1080-cy))+90;
+  setBackdrop(A.gameBg);
+  gameScreen.style.visibility='visible';
+  gameScreen.animate(
+    [{clipPath:`circle(0px at ${cx}px ${cy}px)`},{clipPath:`circle(${R}px at ${cx}px ${cy}px)`}],
+    {duration:900, easing:'cubic-bezier(.62,0,.28,1)', fill:'forwards'});
+  startScreen.animate(
+    [{transform:'scale(1)',opacity:1},{transform:'scale(1.18)',opacity:0}],
+    {duration:760, easing:'cubic-bezier(.5,0,.75,0)', fill:'forwards'});
+  gameBg.animate(
+    [{transform:'scale(1.12)'},{transform:'scale(1)'}],
+    {duration:1500, easing:'cubic-bezier(.16,1,.3,1)', fill:'forwards'});
+  later(()=>{ startScreen.remove(); scene2(); }, 620);
+}
+
+/* =========================================================
+   SCENE 2 — bird flies in, jumps, then talks
+   ========================================================= */
+async function scene2(){
+  setIdleSparkle(false);
+  await flyIn();
+  await wait(180);
+  await happyJump();
+  await wait(260);
+  await talkTo();
+  idle();
+  await wait(700);
+  stopIdle();
+  await flyAway();
+  await wait(260);
+  await buildBalance();
+}
+
+/* =========================================================
+   THE BALANCE — parts fly in and get hammered together
+   ========================================================= */
+function place(el, x, y, w, h){
+  el.style.left=x+'px'; el.style.top=y+'px';
+  el.style.width=w+'px'; el.style.height=h+'px';
+}
+/* place / resize the whole balance as a single group, pivoting on the hub */
+function applyGroup(){
+  const g=BAL.group;
+  balanceEl.style.transformOrigin = HUB.x+'px '+HUB.y+'px';
+  balanceEl.style.transform = `translate(${g.dx}px, ${g.dy}px) scale(${g.scale})`;
+}
+function layoutBalance(){
+  place(pBeam, BAL.beam.x, BAL.beam.y, BAL.beam.w, BAL.beam.h);
+  place(pCol,  BAL.col.x,  BAL.col.y,  BAL.col.w,  BAL.col.h);
+  place(pBase, BAL.base.x, BAL.base.y, BAL.base.w, BAL.base.h);
+  place(pTrayL, KNOB_L.x-RING.x, KNOB_L.y-RING.y, BAL.tray.w, BAL.tray.h);
+  place(pTrayR, KNOB_R.x-RING.x, KNOB_R.y-RING.y, BAL.tray.w, BAL.tray.h);
+  applyGroup();
+}
+
+/* tilt the beam and carry the pans around with it, so it behaves like a
+   real balance rather than three pictures that happen to overlap */
+const RIDERS=[];              // things sitting in a pan, carried by the beam
+let curTilt=0;
+const TRAY_AT={L:{x:0,y:0}, R:{x:0,y:0}};
+
+function setTilt(deg){
+  pBeam.querySelector('img').style.transform = `rotate(${deg}deg)`;
+  const a=deg*Math.PI/180, c=Math.cos(a), sn=Math.sin(a);
+  [['L',pTrayL,KNOB_L],['R',pTrayR,KNOB_R]].forEach(([side,el,k])=>{
+    const dx=k.x-HUB.x, dy=k.y-HUB.y;
+    const X = HUB.x + dx*c - dy*sn - RING.x;
+    const Y = HUB.y + dx*sn + dy*c - RING.y;
+    el.style.left=X+'px'; el.style.top=Y+'px';
+    TRAY_AT[side].x=X; TRAY_AT[side].y=Y;
+  });
+  // riders live outside the group, so map them through the group transform
+  RIDERS.forEach(r=>{
+    const p = groupToStage(TRAY_AT[r.side].x + r.dx, TRAY_AT[r.side].y + r.dy);
+    r.el.style.left = p.x+'px';
+    r.el.style.top  = p.y+'px';
+    r.el.style.transformOrigin = '0 0';
+    r.el.style.transform = `scale(${BAL.group.scale})`;
+  });
+  curTilt=deg;
+}
+/* group-local -> screen. The group is scaled about the hub, so anything that
+   lives OUTSIDE #balance but has to line up with it (the pans' riders, the
+   direction arrows, the drop zones) must go through here. */
+function groupToStage(x, y){
+  const g=BAL.group;
+  return { x: HUB.x + g.scale*(x-HUB.x) + g.dx,
+           y: HUB.y + g.scale*(y-HUB.y) + g.dy };
+}
+function riderStage(side, dx, dy){
+  return groupToStage(TRAY_AT[side].x+dx, TRAY_AT[side].y+dy);
+}
+
+/* tip the beam with a springy, slightly over-shooting settle */
+function tiltTo(target, dur=1150){
+  stopSway();
+  const from=curTilt;
+  return tween(dur,(t,p)=>{
+    const k = 1 - Math.cos(p*Math.PI*2.15)*Math.exp(-4.1*p);
+    setTilt(lerp(from,target,k));
+  }, x=>x).then(()=>{ setTilt(target); swayBase=target; idleSway(); });
+}
+
+function tween(dur, fn, ease=easeOutCubic){
+  dur *= PACE;
+  return new Promise(res=>{
+    const t0=performance.now();
+    (function step(now){
+      const p=clamp((now-t0)/dur,0,1);
+      fn(ease(p), p);
+      if(p<1) requestAnimationFrame(step); else res();
+    })(t0);
+  });
+}
+function shake(px=10, dur=320){
+  const k=[];
+  for(let i=0;i<=8;i++){
+    const d=px*(1-i/8);
+    k.push({transform:`translate(${(i%2?-d:d).toFixed(1)}px, ${(i%2?d*.5:-d*.5).toFixed(1)}px)`});
+  }
+  k.push({transform:'translate(0,0)'});
+  gameScreen.animate(k,{duration:dur,easing:'ease-out'});
+}
+
+/* a wooden mallet swings down and whacks the joint */
+function hammerStrike(x,y){
+  return new Promise(res=>{
+    // the mallet head is the bottom of the svg, so line its face up on the joint
+    hammerEl.style.left = (x-75)+'px';
+    hammerEl.style.top  = (y-190)+'px';
+    hammerEl.style.transformOrigin = '75px 159px';   // centre of the head
+    hammerEl.style.opacity='1';
+    hammerEl.animate([
+      {transform:'translateY(-250px) rotate(-26deg) scale(.86)', opacity:0},
+      {transform:'translateY(-160px) rotate(-21deg) scale(1)',   opacity:1, offset:.26},
+      {transform:'translateY(0px)    rotate(0deg)   scale(1)',   opacity:1, offset:.62},
+      {transform:'translateY(-52px)  rotate(-9deg)  scale(1)',   opacity:1, offset:.78},
+      {transform:'translateY(-215px) rotate(-24deg) scale(.9)',  opacity:0}
+    ],{duration:620, easing:'cubic-bezier(.45,0,.5,1)'});
+
+    setTimeout(()=>{                       // the moment of impact
+      SFX.hammer(); SFX.woodKnock(.26);
+      shake(11,300);
+      cloudBurst(x, y, 12, 1.15);
+      burst(x, y, 20, .8);
+      ringWave(x, y, '#FFEFC0');
+      flash.animate([{opacity:0},{opacity:.2},{opacity:0}],{duration:180});
+    }, 385*PACE);
+    later(()=>{ hammerEl.style.opacity='0'; res(); }, 640);
+  });
+}
+
+/* a part falls into place */
+async function dropIn(el, {from=-400, rot=0, dur=620, squash=true}={}){
+  const img=el.querySelector('img');
+  el.style.opacity='1';
+  await tween(dur, t=>{
+    el.style.transform =
+      `translateY(${lerp(from,0,t).toFixed(1)}px) rotate(${lerp(rot,0,t).toFixed(2)}deg)`;
+  }, easeOutCubic);
+  el.style.transform='translateY(0) rotate(0deg)';
+  if(squash){
+    await tween(300, t=>{
+      const k = t<.4 ? lerp(1,.86,t/.4) : lerp(.86,1,(t-.4)/.6);
+      img.style.transform=`scale(${(1+(1-k)*.6).toFixed(3)}, ${k.toFixed(3)})`;
+    }, x=>x);
+    img.style.transform='';
+  }
+}
+
+async function buildBalance(){
+  // ---- 1. the wooden stand thumps down ----
+  const baseCx=BAL.base.x+BAL.base.w/2, baseBottom=BAL.base.y+BAL.base.h-18;
+  SFX.poof(); cloudBurst(baseCx, baseBottom, 12, 1.3);
+  await wait(140);
+  await dropIn(pBase, {from:-460, rot:-7, dur:600});
+  SFX.woodThud(); shake(13,360);
+  cloudBurst(baseCx, baseBottom, 16, 1.5); burst(baseCx, baseBottom, 18, .9);
+  await wait(200);
+
+  // ---- 2. the column drops on, and gets hammered home ----
+  const colCx=BAL.col.x+BAL.col.w/2, colJoint=BAL.col.y+BAL.col.h-34;
+  await dropIn(pCol, {from:-520, rot:6, dur:560});
+  SFX.woodKnock(.34); cloudBurst(colCx, colJoint, 10, 1.1);
+  await wait(90);
+  await hammerStrike(colCx, colJoint);
+  await wait(120);
+
+  // ---- 3. the beam lands on the hub ----
+  await dropIn(pBeam, {from:-480, rot:-11, dur:600, squash:false});
+  SFX.woodKnock(.30); cloudBurst(HUB.x, HUB.y+12, 10, 1.1);
+  await wait(90);
+  await hammerStrike(HUB.x, HUB.y+6);
+  await wait(120);
+
+  // ---- 4 & 5. the pans swing in and hook on ----
+  await hookTray(pTrayL, KNOB_L, -1);
+  await wait(140);
+  await hookTray(pTrayR, KNOB_R, +1);
+
+  // ---- 6. it's alive: a damped see-saw, then it settles level ----
+  await wait(180);
+  SFX.built();
+  burst(HUB.x, HUB.y-30, 46, 1.35); ringWave(HUB.x, HUB.y-20, '#FFE9A8');
+  later(()=>ringWave(HUB.x, HUB.y-20, '#9BE7FF'), 130);
+  for(let i=0;i<20;i++)
+    setTimeout(()=>spawnStar(HUB.x+rand(-460,460), HUB.y+rand(-90,220), {g:-.016}), i*45);
+  flash.animate([{opacity:0},{opacity:.3},{opacity:0}],{duration:420,easing:'ease-out'});
+
+  // the whole group settles as one piece
+  const g=BAL.group;
+  balanceEl.animate([
+    {transform:`translate(${g.dx}px,${g.dy}px) scale(${g.scale})`},
+    {transform:`translate(${g.dx}px,${g.dy-9}px) scale(${g.scale*1.035})`, offset:.35},
+    {transform:`translate(${g.dx}px,${g.dy}px) scale(${g.scale})`}
+  ],{duration:760, easing:'cubic-bezier(.34,1.56,.64,1)'});
+
+  await tween(1750, (t,p)=>{
+    setTilt(Math.sin(p*Math.PI*3.1) * 9 * (1-p) * (1-p));
+  }, x=>x);
+  setTilt(0);
+  swayBase=0; idleSway();
+  await wait(420);
+  await scene3();
+}
+
+/* =========================================================
+   SCENE 3 — the bird shows how the balance works
+   ========================================================= */
+async function scene3(){
+  const S=SC3;
+
+  // ---- she flies in and perches on top of the machine ----
+  await birdFlyTo(S.perch.footX, S.perch.footY, S.perch.h, {fromX:2280, fromY:-240, cx:1500, cy:-180});
+  await wait(200);
+  await speech(LINES3.perch, S.perch.footX, S.perch.footY-S.perch.h, 1220, 'talk');
+
+  // ---- she hops down into the right pan, and it sinks ----
+  await wait(180);
+  const seat = riderStage('R', S.sitPan.dx, S.sitPan.dy);
+  await birdFlyTo(seat.x+S.sitPan.w/2, seat.y+S.sitPan.h, S.perch.h,
+                  {fromX:null, dur:1150, cx:1520, cy:250});
+  // swap the animated bird for the sitting-in-the-pan artwork
+  birdWrap.style.opacity='0'; bird.stop();
+  layerOn(sitBird, 'transform, left, top');
+  sitBird.style.opacity='1';
+  RIDERS.push({el:sitBird, side:'R', dx:S.sitPan.dx, dy:S.sitPan.dy});
+  setTilt(curTilt);
+  SFX.woodKnock(.22); cloudBurst(seat.x+S.sitPan.w/2, seat.y+S.sitPan.h, 8, .9);
+
+  await wait(260);
+  SFX.creak(); SFX.whee();
+  await tiltTo(S.TILT, 1400);
+  const sitTop = ()=> riderStage('R', S.sitPan.dx, S.sitPan.dy).y;
+
+  // where her head is, and where her body disappears into the pan
+  const herX    = ()=> riderStage('R', S.sitPan.dx, S.sitPan.dy).x + 74.3;
+  const herHead = ()=> riderStage('R', S.sitPan.dx, S.sitPan.dy).y + 3;
+  const herBody = ()=> riderStage('R', S.sitPan.dx, S.sitPan.dy).y + 150;
+  await speech(LINES3.whoa, herX(), herHead(), 1000, 'sit', false, 900);
+
+  // ---- the arrows: heavy side down, light side up ----
+  await wait(150);
+  showArrow(arrowDown, 'R', 'down');                 // her side, the heavy one
+  await speech(LINES3.down, herX(), herHead(), 1000, 'sit', false, 900);
+  showArrow(arrowUp, 'L', 'up');                     // the empty, light side
+  await speech(LINES3.up, herX(), herHead(), 1000, 'sit', false, 900);
+  await speech(LINES3.push, herX(), herHead(), 1000, 'sit', false, 900);
+  hideArrows();
+  await wait(220);
+
+  // ---- the balance eases back first, then a table arrives in the space ----
+  await slideBalance(S.slideUp, 900);
+  await wait(200);
+  await magicAppear(tableImg, S.table.x+S.table.w/2, S.table.y+S.table.h*0.55);
+
+  // ---- the stone appears on the table ----
+  await wait(180);
+  stoneImg.style.zIndex='7';
+  place(stoneImg, S.stone0.x, S.stone0.y, S.stone0.w, S.stone0.h);
+  await magicAppear(stoneImg, S.stone0.x+S.stone0.w/2, S.stone0.y+S.stone0.h*0.7);
+  SFX.stoneThud();
+
+  // ---- the child drags it into the left pan ----
+  await wait(240);
+  await speech(LINES3.drag, S.stone0.x+S.stone0.w/2, S.stone0.y, 1000, 'none');
+  await dragStoneToPan();
+
+  // ---- the heavy side drops, and she rides up ----
+  SFX.creak(); SFX.whee();
+  await tiltTo(-S.TILT, 1450);
+  await wait(200);
+  showArrow(arrowDown, 'L', 'down');                 // the stone's side sinks
+  showArrow(arrowUp,   'R', 'up');                   // she rides up
+  await speech(LINES3.stone, herX(), herBody(), 1000, 'sit', true);
+  hideArrows();
+
+  // ---- the stone vanishes, and she takes off again ----
+  await wait(180);
+  const sp = riderStage('L', S.stonePan.dx, S.stonePan.dy);
+  SFX.vanish();
+  cloudBurst(sp.x+108, sp.y+72, 14, 1.2); burst(sp.x+108, sp.y+72, 30, 1);
+  await tween(420, t=>{ stoneImg.style.opacity=String(1-t);
+    stoneImg.style.transform=`scale(${lerp(1,.2,t)}) rotate(${lerp(0,26,t)}deg)`; }, easeOutCubic);
+  stoneImg.style.opacity='0'; stoneImg.style.clipPath='none';
+  RIDERS.length=0; RIDERS.push({el:sitBird, side:'R', dx:S.sitPan.dx, dy:S.sitPan.dy});
+  SFX.creak();
+  await tiltTo(S.TILT*0.75, 1000);
+
+  // ---- down onto the table for the last word ----
+  await wait(120);
+  const off = riderStage('R', S.sitPan.dx, S.sitPan.dy);
+  sitBird.style.opacity='0'; layerOff(sitBird);
+  RIDERS.length=0;
+  birdWrap.style.opacity='1';
+  bird.at(off.x+87, off.y+S.sitPan.h); bird.scale=1; bird.syncEl();
+  SFX.creak();
+  tiltTo(0, 1250);
+  await birdFlyTo(S.stand.footX, S.stand.footY, S.stand.h,
+                  {fromX:null, dur:1300, cx:1660, cy:300});
+  SFX.woodKnock(.2);
+  await wait(180);
+  await speech(LINES3.find, S.stand.footX, S.stand.footY-S.stand.h, 1180, 'talk');
+
+  // ---- let's play! ----
+  await wait(220);
+  SFX.tada();
+  for(let i=0;i<46;i++)
+    setTimeout(()=>spawnStar(rand(80,1840), rand(60,700), {g:.02}), i*32);
+  ringWave(960, 420, '#FFE9A8'); later(()=>ringWave(960,420,'#9BE7FF'),140);
+  flash.animate([{opacity:0},{opacity:.34},{opacity:0}],{duration:460,easing:'ease-out'});
+  await speech(LINES3.play, S.stand.footX, S.stand.footY-S.stand.h, 720, 'talk');
+
+  // ---- and she flies out of frame ----
+  await wait(240);
+  for(let i=0;i<16;i++) later(()=>spawnStar(rand(1000,1800), rand(200,820), {g:-.014}), i*46);
+  await flyAway();
+  await wait(260);
+  await scene4();
+}
+
+/* =========================================================
+   SCENE 4 — a gate wipes the screen, then the fruit round
+   ========================================================= */
+async function scene4(){
+  await gateClose();
+
+  // Behind the closed gate, ease the balance down a size. At 0.89 its highest
+  // point when the beam tips to -21 sits at y 211 — 25px clear of the question
+  // bar — while the stand stays exactly where it was and the lowest pan still
+  // lands on the table's top edge.
+  stopSway(); swayBase=0;
+  BAL.group.scale = 0.89;
+  BAL.group.dy    = -163.4;
+  applyGroup(); setTilt(0); idleSway();
+  await wait(560);
+
+  await gateOpen();
+  await wait(240);
+  await qbarIn();
+
+  for(let i=0; i<ROUNDS.length; i++){
+    if(i>0){
+      // the gate wipes between rounds while the table is reset
+      await gateClose();
+      clearRound(ROUNDS[i-1]);
+      qbarText.textContent = '';
+      await wait(520);
+      await gateOpen();
+      await wait(240);
+    }
+    await playRound(ROUNDS[i]);
+  }
+
+  await finale();
+}
+
+/* Replay in place. A location.reload() would refetch every asset; restarting
+   in-page reuses the blob URLs already in memory, so a second run costs
+   nothing on the network. Everything the scenes mutate is put back here. */
+async function restart(){
+  againBtn.hidden = true; againBtn.classList.remove('live');
+  againBtn.getAnimations().forEach(a=>a.cancel());
+
+  if(cancelActiveDrag) cancelActiveDrag();
+  stopSway(); stopIdle(); bird.stop();
+  RIDERS.length = 0;
+  P.length = 0; fctx.clearRect(0,0,1920,1080);
+  setIdleSparkle(false);
+  hideArrows();
+  handEl.style.opacity='0'; layerOff(handEl);
+
+  bubble.getAnimations().forEach(a=>a.cancel());
+  bubble.style.opacity='0'; bubble.style.transform='scale(.2)'; bubbleText.textContent='';
+  qbar.getAnimations().forEach(a=>a.cancel());
+  qbar.style.opacity='0'; qbar.style.transform=''; qbarText.textContent='';
+
+  hideAllThings();
+  sitBird.style.opacity='0'; layerOff(sitBird);
+  tableImg.getAnimations().forEach(a=>a.cancel());
+  tableImg.style.opacity='0'; tableImg.style.transform='';
+
+  // the balance goes back to un-built
+  BAL.group.dx=0; BAL.group.dy=0; BAL.group.scale=1; applyGroup();
+  swayBase=0; setTilt(0);
+  [pBeam,pCol,pBase,pTrayL,pTrayR].forEach(el=>{
+    el.getAnimations().forEach(a=>a.cancel());
+    el.style.opacity='0'; el.style.transform='';
+    const im=el.querySelector('img'); if(im) im.style.transform='';
+  });
+  setGate(0); gateEl.style.visibility='hidden'; layerOff(gateL); layerOff(gateR);
+
+  // and the bird back to her entrance
+  birdWrap.style.opacity='1';
+  bird.scale=1; bird.rot=0; bird.sqX=bird.sqY=1; bird.groundGap=0;
+  shadowEl.style.opacity='0';
+
+  await wait(300);
+  scene2();
+}
+
+/* =========================================================
+   THE ENDING — gate wipes the table clean, the bird comes back
+   ========================================================= */
+async function finale(){
+  // ---- clear everything away behind the gate ----
+  await gateClose();
+  clearRound(ROUNDS[ROUNDS.length-1]);
+  qbarText.textContent = '';
+  await wait(560);
+  await gateOpen();
+
+  // the question bar bows out — she does the talking from here
+  qbar.animate([{opacity:1, transform:'translateY(0)'},
+                {opacity:0, transform:'translateY(-320px)'}],
+               {duration:520, easing:'ease-in', fill:'forwards'});
+  await wait(300);
+
+  // ---- she flies back in ----
+  await birdFlyTo(SC3.stand.footX, SC3.stand.footY, SC3.stand.h,
+                  {fromX:2320, fromY:-280, cx:1580, cy:170, dur:1650});
+  await wait(280);
+
+  // ---- confetti and cheering ----
+  SFX.confettiPop(); SFX.cheer(); SFX.tada();
+  confettiBurst(120);
+  ringWave(960, 500, '#FFE9A8');
+  later(()=>ringWave(960, 500, '#9BE7FF'), 180);
+  flash.animate([{opacity:0},{opacity:.30},{opacity:0}],{duration:540, easing:'ease-out'});
+  later(()=>{ SFX.confettiPop(); confettiBurst(90); }, 1000);
+  later(()=>confettiBurst(70), 2100);
+
+  const headY = SC3.stand.footY - SC3.stand.h;
+  await speech(FINALE_LINES[0], SC3.stand.footX, headY, 1000, 'talk');
+  await wait(180);
+  await speech(FINALE_LINES[1], SC3.stand.footX, headY, 1280, 'talk');
+
+  // ---- play again ----
+  await wait(320);
+  SFX.magicAppear(); sfxPlay('appear', .8);
+  burst(960, 992, 30, 1.1);
+  againBtn.hidden = false;
+  againBtn.animate([{transform:'translateX(-50%) scale(0)'},
+                    {transform:'translateX(-50%) scale(1.14)'},
+                    {transform:'translateX(-50%) scale(1)'}],
+                   {duration:660, easing:'cubic-bezier(.34,1.56,.64,1)', fill:'forwards'});
+  later(()=>{
+    againBtn.getAnimations().forEach(a=>a.cancel());
+    againBtn.classList.add('live');
+  }, 700);
+
+  // nothing is animating any more: let both frame loops park
+  later(()=>stopSway(), 1200);
+}
+
+/* Put one thing back on the table, exactly as it started. The stone in
+   particular has already been used once in scene 3, so its position, clip
+   and z-order all have to be undone before it can be shown again. */
+function resetThing(t){
+  t.el.getAnimations().forEach(a=>a.cancel());
+  layerOff(t.el);                      // release its GPU layer while unused
+  t.el.style.pointerEvents = 'none';   // invisible things must not swallow taps
+  t.el.style.opacity   = '0';
+  t.el.style.clipPath  = 'none';
+  t.el.style.transform = '';
+  t.el.style.transformOrigin = '';
+  t.el.style.zIndex    = '12';
+  place(t.el, t.home.x, t.home.y, t.w, t.h);
+}
+
+/* every draggable back off-screen — not just the last round's pair, so a
+   stray one can never linger half-faded behind the new round */
+function hideAllThings(){ Object.values(THINGS).forEach(resetThing); }
+
+/* take the last round's things away and level the beam, behind the gate */
+function clearRound(r){
+  RIDERS.length = 0;
+  hideAllThings();
+  qbarText.textContent = '';          // the bar is blank when the gate opens
+  stopSway(); swayBase = 0; setTilt(0); idleSway();
+}
+
+/* one comparison: two things onto the table, dragged in, then explained */
+async function playRound(r){
+  const A = THINGS[r.first], B = THINGS[r.second];
+  const dir = p => p==='R' ? 1 : -1;          // +tilt drops the right pan
+
+  hideAllThings();                            // nothing else may be showing
+  resetThing(A); resetThing(B);               // always start from the table
+
+  // ---- they arrive on the table ----
+  await wait(200);
+  await magicAppear(B.el, B.home.x+B.w/2, B.home.y+B.h*0.7);
+  await wait(180);
+  await magicAppear(A.el, A.home.x+A.w/2, A.home.y+A.h*0.7);
+  await wait(360);
+
+  // ---- the light one first ----
+  await qbarSay(r.lines.first);
+  await dragToPan(A.el, A.home, A.pan, A.off, A.w, A.h);
+  SFX.creak();
+  await tiltTo(dir(A.pan)*SC3.TILT*0.55, 1100);   // one thing in: no arrows yet
+  await wait(520);
+
+  // ---- then the heavy one ----
+  await qbarSay(r.lines.second);
+  await dragToPan(B.el, B.home, B.pan, B.off, B.w, B.h);
+  const heavy = THINGS[r.heavy], light = (heavy===A ? B : A);
+  SFX.creak();
+  await tiltTo(dir(heavy.pan)*SC3.TILT, 1500);
+
+  // ---- both in: each side gets its own arrow and its own line ----
+  await wait(340);
+  showArrow(arrowDown, heavy.pan, 'down');
+  await qbarSay(r.lines.heavier);
+  await wait(240);
+  showArrow(arrowUp, light.pan, 'up');
+  await qbarSay(r.lines.lighter);
+
+  // ---- and a little celebration ----
+  await wait(260);
+  SFX.tada();
+  const k = BAL.group.scale;
+  const hp = riderStage(heavy.pan, heavy.off.dx, heavy.off.dy);
+  const hx = hp.x + heavy.w*k/2, hy = hp.y + heavy.h*k*0.4;
+  burst(hx, hy, 42, 1.25);
+  ringWave(hx, hy, '#FFE9A8');
+  for(let i=0;i<34;i++) later(()=>spawnStar(rand(120,1800), rand(120,760), {g:.018}), i*36);
+  await qbarSay(r.lines.done);
+  await wait(600);
+  hideArrows();
+}
+
+/* ---------- the gate ----------  k: 0 = wide open, 1 = shut */
+function setGate(k, nudge=0){
+  gateL.style.left = (lerp(GATE.openL,  GATE.closedL,  k) - nudge)+'px';
+  gateR.style.left = (lerp(GATE.openR,  GATE.closedR,  k) + nudge)+'px';
+  gbL.style.left   = (lerp(GATE.bOpenL, GATE.bClosedL, k) - nudge)+'px';
+  gbR.style.left   = (lerp(GATE.bOpenR, GATE.bClosedR, k) + nudge)+'px';
+}
+function gateClose(){
+  gateEl.style.visibility='visible';
+  layerOn(gateL, 'left'); layerOn(gateR, 'left');
+  SFX.gateSlide();
+  return tween(760, k=>setGate(k), easeInOutCubic).then(async ()=>{
+    SFX.gateClunk(); shake(15,380);
+    burst(960, 540, 34, 1.2); ringWave(960, 540, '#FFE9A8');
+    for(let i=0;i<10;i++) later(()=>spawnStar(960+rand(-70,70), rand(80,1000), {g:-.01}), i*44);
+    // a little rebound, as if the two halves knock together
+    await tween(280, k=>setGate(1, Math.sin(k*Math.PI)*9), x=>x);
+    setGate(1);
+  });
+}
+function gateOpen(){
+  SFX.gateOpen();
+  return tween(900, k=>setGate(1-k), easeInOutCubic)
+         .then(()=>{ gateEl.style.visibility='hidden'; layerOff(gateL); layerOff(gateR); });
+}
+
+/* ---------- the question bar ---------- */
+async function qbarIn(){
+  qbarText.textContent='';
+  qbar.style.opacity='1';
+  SFX.magicAppear();
+  await tween(680,(k)=>{
+    qbar.style.transform =
+      `translateY(${lerp(-360,0,k).toFixed(1)}px) scale(${lerp(.86,1,k).toFixed(3)})`;
+  }, easeOutBack);
+  qbar.style.transform='';
+}
+async function qbarSay(text){
+  qbar.animate([{transform:'scale(1)'},{transform:'scale(1.035)'},{transform:'scale(1)'}],
+               {duration:420, easing:'cubic-bezier(.34,1.56,.64,1)'});
+  SFX.chirp(.16);
+  await wait(260);
+  await speakInto(qbarText, text);
+  await wait(420);
+}
+
+/* ---------- scene-3 helpers ---------- */
+
+function showBubble(){
+  bubble.getAnimations().forEach(a=>a.cancel());
+  bubble.style.opacity='1'; bubble.style.transform='';
+  bubble.animate([
+    {transform:'scale(.15) rotate(-10deg)',opacity:0},
+    {transform:'scale(1.10) rotate(2deg)',opacity:1,offset:.62},
+    {transform:'scale(1) rotate(0deg)',opacity:1}
+  ],{duration:560, easing:'cubic-bezier(.34,1.56,.64,1)', fill:'forwards'});
+  SFX.pop();
+}
+async function hideBubble(){
+  if(bubble.style.opacity==='0') return;
+  bubble.getAnimations().forEach(a=>a.cancel());
+  bubble.animate([{transform:'scale(1)',opacity:1},{transform:'scale(.82)',opacity:0}],
+    {duration:340, easing:'ease-in', fill:'forwards'});
+  await wait(360);
+  bubble.getAnimations().forEach(a=>a.cancel());
+  bubble.style.opacity='0'; bubble.style.transform='scale(.2)';
+  bubbleText.textContent='';
+}
+
+/* one spoken line: the box appears, she says it, the box goes away again —
+   so there is never an empty text box on screen */
+/* speech(text, aimX, aimY, wMax, anim, tailUp, boxCx)
+   aimX/aimY = the point on the bird the tail should touch */
+async function speech(text, aimX, aimY, w, anim, tailUp, boxCx){
+  bubbleAt(aimX, aimY, w, boxCx===undefined?null:boxCx, tailUp, text);
+  showBubble();
+  await wait(380);
+  await sayLine(text, anim);
+  await wait(620);
+  await hideBubble();
+  await wait(200);
+}
+
+/* park an arrow just outside the pan it refers to, wherever that pan is now */
+function showArrow(el, side, dir){
+  const k = BAL.group.scale;
+  const p = groupToStage(TRAY_AT[side].x, TRAY_AT[side].y);
+  const x = side==='L' ? p.x - 148 : p.x + BAL.tray.w*k + 44;
+  const y = p.y + 132*k;
+  el.style.left = clamp(x, 16, 1800)+'px';
+  el.style.top  = clamp(y, 16, 870)+'px';
+  layerOn(el);
+  el.style.opacity='1';
+  el.classList.remove('up','down');
+  el.classList.add('go', dir);
+  SFX.tap();
+  burst(parseFloat(el.style.left)+52, parseFloat(el.style.top)+98, 14, .6);
+}
+function hideArrow(el){ el.style.opacity='0'; el.classList.remove('go','up','down'); layerOff(el); }
+function hideArrows(){ hideArrow(arrowDown); hideArrow(arrowUp); }
+
+async function magicAppear(el, cx, cy){
+  layerOn(el, 'transform, left, top');
+  sfxPlay('appear', 0.85);
+  cloudBurst(cx, cy, 14, 1.25); burst(cx, cy, 34, 1.1); ringWave(cx, cy, '#FFE9A8');
+  el.style.opacity='1';
+  await tween(640, t=>{
+    el.style.transform=`scale(${lerp(.15,1,t).toFixed(3)}) rotate(${lerp(-16,0,t).toFixed(2)}deg)`;
+  }, easeOutBack);
+  el.style.transform='';
+}
+
+/* the whole balance eases back and up as one group */
+function slideBalance(dy, dur=900){
+  const from=BAL.group.dy;
+  SFX.whoosh();
+  return tween(dur, t=>{
+    BAL.group.dy = lerp(from, dy, t);
+    applyGroup();
+    setTilt(curTilt);          // riders live outside the group, so re-place them
+  }, easeInOutCubic);
+}
+
+/* ---------- the child drags the stone into the pan themselves ----------
+   A looping hand gesture shows what to do; it stops the moment they grab it.
+   Drop it near the pan and it snaps in; drop it anywhere else and it hops
+   back to the table and the hint starts again. */
+function toStage(e){
+  const r = stage.getBoundingClientRect(), k = r.width/1920;
+  return { x:(e.clientX-r.left)/k, y:(e.clientY-r.top)/k };
+}
+/* the index fingertip sits at (95, 6) in the 254x358 handNudge artwork, which
+   is 37.4, 2.4 once it is drawn at 100x141 — so these coords are where the
+   FINGER points, not where the box goes */
+const setHand = (fx,fy)=>{ handEl.style.left=(fx-37.4)+'px'; handEl.style.top=(fy-2.4)+'px'; };
+
+/* home: where it lives on the table | side: which pan | off: its seat in that
+   pan | W,H: its drawn size. Resolves once the child has dropped it in. */
+let cancelActiveDrag = null;
+function dragToPan(el, home, side, off, W, H){
+  if(cancelActiveDrag) cancelActiveDrag();    // an earlier drag must not still be listening
+  return new Promise(resolve=>{
+    let dragging=false, grabX=0, grabY=0, finished=false, hintToken=0;
+
+    const at     = ()=> ({ x:parseFloat(el.style.left), y:parseFloat(el.style.top) });
+    const target = ()=> riderStage(side, off.dx, off.dy);
+    // the whole pan is the drop zone, generously padded — asking a child to
+    // hit a point is far too fussy
+    const panRect = ()=>{
+      const p = groupToStage(TRAY_AT[side].x, TRAY_AT[side].y), k = BAL.group.scale;
+      return { x:p.x, y:p.y, w:BAL.tray.w*k, h:BAL.tray.h*k };
+    };
+    let tries=0;
+    function overPan(a){
+      const r=panRect(), PAD=140;
+      const cx=a.x+W/2, cy=a.y+H/2;
+      // 1. anywhere over the pan (generously padded)
+      if(cx>r.x-PAD && cx<r.x+r.w+PAD && cy>r.y-PAD && cy<r.y+r.h+PAD) return true;
+      // 2. or close to the seat itself
+      const t=target();
+      if(Math.hypot(a.x-t.x, a.y-t.y) < Math.max(360, W*1.8)) return true;
+      // 3. or simply carried nearer the pan than to where it started
+      const dPan  = Math.hypot(cx-(r.x+r.w/2), cy-(r.y+r.h*0.6));
+      const dHome = Math.hypot(cx-(home.x+W/2), cy-(home.y+H/2));
+      if(dPan < dHome) return true;
+      // 4. and never let a child get stuck: take the third honest attempt
+      return (++tries >= 3) && dPan < dHome*2.2;
+    }
+
+    async function runHint(){
+      const me = ++hintToken;
+      while(me===hintToken && !finished){
+        const a=at(), t=target();
+        const ax=a.x+W/2, ay=a.y+H/2, tx=t.x+W/2, ty=t.y+H/2;
+        setHand(ax, ay);                       // finger right on the object
+        layerOn(handEl);
+        handEl.style.opacity='1';
+        SFX.tap(); ringWave(ax, ay, '#FFFFFF');
+        handEl.animate([{transform:'translateY(30px) scale(.85)',opacity:0},
+                        {transform:'translateY(0) scale(1)',opacity:1}],
+                       {duration:280, easing:'cubic-bezier(.34,1.56,.64,1)', fill:'forwards'});
+        // a couple of taps on the thing itself before setting off
+        for(let n=0;n<2 && me===hintToken;n++){
+          el.animate([{transform:'scale(1)'},{transform:'scale(1.07)'},{transform:'scale(1)'}],
+                     {duration:340, easing:'ease-in-out'});
+          handEl.animate([{transform:'translateY(0)'},{transform:'translateY(-18px)'},{transform:'translateY(0)'}],
+                         {duration:340, easing:'ease-in-out'});
+          await wait(430);
+        }
+        if(me!==hintToken) break;
+        await tween(950,(k)=>{
+          if(me!==hintToken) return;
+          setHand(lerp(ax,tx,k), lerp(ay,ty,k));
+        }, easeInOutCubic);
+        if(me!==hintToken) break;
+        ringWave(tx, ty, '#9BE7FF');
+        await wait(320); if(me!==hintToken) break;
+        handEl.animate([{opacity:1},{opacity:0}],{duration:240, fill:'forwards'});
+        await wait(760);
+      }
+      if(me===hintToken) handEl.style.opacity='0';
+    }
+    let pulseTimer=null;
+    function pulseTarget(){          // a ring over the pan for as long as they drag
+      clearInterval(pulseTimer);
+      const beat=()=>{
+        if(!dragging){ clearInterval(pulseTimer); pulseTimer=null; return; }
+        const r=panRect();
+        ringWave(r.x+r.w/2, r.y+r.h*0.72, '#9BE7FF');
+      };
+      beat();
+      pulseTimer=setInterval(beat, 620);
+    }
+    function stopHint(){
+      hintToken++;
+      handEl.getAnimations().forEach(a=>a.cancel());
+      const wasVisible = handEl.style.opacity !== '0';
+      handEl.style.opacity='0';
+      if(wasVisible) handEl.animate([{opacity:1},{opacity:0}],{duration:180, easing:'ease-in'});
+      later(()=>{ if(handEl.style.opacity==='0') layerOff(handEl); }, 260);
+    }
+
+    function onDown(e){
+      if(finished || dragging) return;
+      const p=toStage(e), a=at();
+      const PAD=40;                                   // generous for small fingers
+      if(p.x<a.x-PAD || p.x>a.x+W+PAD || p.y<a.y-PAD || p.y>a.y+H+PAD) return;
+      dragging=true; stopHint();
+      grabX=p.x-a.x; grabY=p.y-a.y;
+      pulseTarget();
+      
+      el.style.zIndex='23';
+      el.classList.add('held');
+      try{ el.setPointerCapture(e.pointerId); }catch(_){}
+      SFX.pick();
+      el.animate([{transform:'scale(1)'},{transform:'scale(1.09)'}],{duration:180, fill:'forwards'});
+      e.preventDefault();
+    }
+    function onMove(e){
+      if(!dragging) return;
+      const p=toStage(e);
+      el.style.left=(p.x-grabX)+'px';
+      el.style.top =(p.y-grabY)+'px';
+      if(Math.random()<.10) spawnStar(p.x+rand(-46,46), p.y+rand(-34,34), {g:-.01});
+      e.preventDefault();
+    }
+    async function onUp(){
+      if(!dragging) return;
+      dragging=false;
+      el.animate([{transform:'scale(1.09)'},{transform:'scale(1)'}],{duration:180, fill:'forwards'});
+      el.classList.remove('held');
+      const a=at();
+      if(overPan(a)) await snapIn(a, target());
+      else await goHome(a);
+    }
+
+    function cleanup(){
+      finished = true;
+      stopHint(); clearInterval(pulseTimer);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+      stage.removeEventListener('pointerdown', onDown);
+      el.removeEventListener('pointerdown', onDown);
+      el.style.cursor = 'default';
+      el.style.pointerEvents = 'none';
+      el.classList.remove('held');
+      if(cancelActiveDrag === cleanup) cancelActiveDrag = null;
+    }
+
+    async function snapIn(from, t){
+      cleanup();
+      const k0 = BAL.group.scale;
+      el.style.transformOrigin='0 0';
+      await tween(150,(k)=>{                            // snappy: it just drops in
+        el.style.left=lerp(from.x, t.x, k)+'px';
+        el.style.top =lerp(from.y, t.y, k)+'px';
+        el.style.transform=`scale(${lerp(1,k0,k).toFixed(4)})`;   // settles into the pan
+      }, easeOutCubic);
+      SFX.stoneThud(); shake(10,300);
+      cloudBurst(t.x+W/2, t.y+H*0.62, 12, 1.1);
+      burst(t.x+W/2, t.y+H*0.4, 18, .8);
+      el.getAnimations().forEach(a=>a.cancel());
+      el.style.transformOrigin='0 0';
+      el.style.transform=`scale(${BAL.group.scale})`;
+      el.style.zIndex='9';
+      clipToRim(el, off.dx, off.dy, W);
+      RIDERS.push({el, side, dx:off.dx, dy:off.dy});
+      setTilt(curTilt);
+      resolve();
+    }
+    async function goHome(from){
+      SFX.tap();
+      await tween(300,(k)=>{
+        el.style.left=lerp(from.x, home.x, k)+'px';
+        el.style.top =lerp(from.y, home.y, k)+'px';
+      }, easeOutCubic);
+      el.style.zIndex='12';
+      runHint();
+    }
+
+    // the voice-over has finished by the time we get here, so make it obvious
+    // the object is now live
+    (function unlockCue(){
+      const a=at();
+      ringWave(a.x+W/2, a.y+H/2, '#FFE9A8');
+      later(()=>ringWave(a.x+W/2, a.y+H/2, '#9BE7FF'), 200);
+      burst(a.x+W/2, a.y+H/2, 14, .55);
+      SFX.chirp(.18);
+      el.animate([{transform:'scale(1)'},{transform:'scale(1.12)'},{transform:'scale(1)'},
+                  {transform:'scale(1.07)'},{transform:'scale(1)'}],
+                 {duration:620, easing:'ease-in-out'});
+    })();
+
+    cancelActiveDrag = cleanup;
+    el.style.pointerEvents = 'auto';    // this is the one that can be picked up
+    el.style.cursor = 'grab';
+    el.addEventListener('pointerdown', onDown);
+    stage.addEventListener('pointerdown', onDown);
+    window.addEventListener('pointermove', onMove, {passive:false});
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    runHint();
+  });
+}
+
+const dragStoneToPan = ()=> dragToPan(stoneImg, SC3.stone0, 'L',
+                                      SC3.stonePan, SC3.stone0.w, SC3.stone0.h);
+
+/* generic: fly the bird to a spot and land there */
+function birdFlyTo(footX, footY, h, {fromX=null, fromY=-240, cx=null, cy=null, dur=1500}={}){
+  return new Promise(res=>{
+    const x0 = fromX!==null ? fromX : bird.x;
+    const y0 = fromX!==null ? fromY : bird.y;
+    const CX = cx!==null ? cx : (x0+footX)/2;
+    const CY = cy!==null ? cy : Math.min(y0,footY)-260;
+    birdWrap.style.opacity='1';
+    bird.swap('fly',{loop:true, fade:fromX!==null?0:170, height:h});
+    bird.play();
+    dur *= PACE;
+    const t0=performance.now(); let lastFlap=0;
+    (function step(now){
+      const raw=clamp((now-t0)/dur,0,1), t=easeInOutCubic(raw), mt=1-t;
+      const x = mt*mt*x0 + 2*mt*t*CX + t*t*footX;
+      const y = mt*mt*y0 + 2*mt*t*CY + t*t*footY + Math.sin(raw*Math.PI*4.6)*16*(1-raw);
+      bird.scale=1; bird.rot = Math.sin(raw*Math.PI*4.6)*5*(1-raw);
+      bird.groundGap = 900;                       // in the air: no ground shadow
+      bird.at(x,y);
+      if(now-lastFlap>150 && raw<.9){ lastFlap=now; SFX.flap(); }
+      if(raw<1) requestAnimationFrame(step);
+      else{
+        bird.stop();
+        bird.swap('talk',{loop:false, frame:0, fade:200, height:h});
+        bird.rot=0; bird.at(footX,footY);
+        SFX.woodKnock(.16);
+        cloudBurst(footX, footY, 6, .7);
+        res();
+      }
+    })(t0);
+  });
+}
+
+/* a pan flies in from off-frame and hooks onto its knob */
+async function hookTray(el, knob, dir){
+  const img=el.querySelector('img');
+  const startX = dir<0 ? -520 : 520;
+  el.style.opacity='1';
+  await tween(680, (t,p)=>{
+    const y = -180*Math.sin(p*Math.PI)*(1-p*.4);
+    el.style.transform=`translate(${lerp(startX,0,t).toFixed(1)}px, ${y.toFixed(1)}px)`;
+    img.style.transform=`rotate(${lerp(dir*26,0,t).toFixed(2)}deg)`;
+  }, easeOutCubic);
+  el.style.transform='translate(0,0)';
+  SFX.chain(); SFX.woodKnock(.18);
+  cloudBurst(knob.x, knob.y+40, 8, .9);
+  burst(knob.x, knob.y+10, 16, .7);
+  // it keeps swinging on its hook while the build carries on
+  tween(1100, (t,p)=>{
+    img.style.transform=`rotate(${(Math.sin(p*Math.PI*3.4)*dir*15*(1-p)*(1-p)).toFixed(2)}deg)`;
+  }, x=>x).then(()=>{ img.style.transform='rotate(0deg)'; });
+  await wait(260);
+}
+
+/* the finished balance breathes very gently so it doesn't look frozen */
+let swayBase=0, swayRaf=null, swayLast=null;
+function idleSway(){
+  if(swayRaf) return;
+  const t0=performance.now();
+  (function sway(now){
+    const deg = swayBase + Math.sin((now-t0)/2600)*0.85;
+    // setTilt writes left/top on both pans and every rider, so only do it when
+    // the angle has actually moved enough to be visible
+    if(swayLast===null || Math.abs(deg-swayLast) > 0.02){ setTilt(deg); swayLast=deg; }
+    swayRaf=requestAnimationFrame(sway);
+  })(t0);
+}
+function stopSway(){ if(swayRaf) cancelAnimationFrame(swayRaf); swayRaf=null; swayLast=null; }
+
+/* =========================================================
+   the bird waves goodbye and flies out of frame
+   ========================================================= */
+async function flyAway(){
+  SFX.chirp(.26);
+  // a little crouch first, so the take-off has some weight to it
+  await tween(240, t=>{
+    bird.sqY = 1-0.14*Math.sin(t*Math.PI);
+    bird.sqX = 1+0.11*Math.sin(t*Math.PI);
+    bird.syncEl();
+  }, x=>x);
+  bird.sqX=bird.sqY=1;
+
+  bird.swap('fly',{loop:true, fade:170, height:bird.h});
+  bird.play();
+  SFX.whoosh();
+
+  const x0=bird.x, y0=bird.y;    // she may be on the ground or up on the table
+  const C={x:x0+560,y:y0-620}, P1={x:2360,y:-320};
+  let lastFlap=0;
+  await tween(1650, (t,p)=>{
+    const mt=1-t;
+    const x = mt*mt*x0 + 2*mt*t*C.x + t*t*P1.x;
+    const y = mt*mt*y0 + 2*mt*t*C.y + t*t*P1.y;
+    bird.scale = lerp(1,.55,t);
+    bird.rot   = lerp(0,-14,t) + Math.sin(p*Math.PI*7)*4;
+    bird.groundGap = Math.max(0, y0-y);
+    bird.at(x,y);
+    const now=performance.now();
+    if(now-lastFlap>145 && p<.75){ lastFlap=now; SFX.flap(); }
+    if(p<.6 && Math.random()<.22) spawnStar(x+rand(-60,60), y-rand(40,220), {g:-.01});
+  }, t=>t*t*(3-2*t));
+
+  bird.stop();
+  birdWrap.style.opacity='0';
+  shadowEl.style.opacity='0';
+}
+
+function flyIn(){
+  return new Promise(res=>{
+    bird.swap('fly',{loop:true, fade:0});
+    bird.play();
+
+    const P0={x:-360,y:340}, C={x:490,y:190}, P1={x:LAYOUT.bird.footX,y:LAYOUT.bird.footY};
+    const DUR=2350*PACE, t0=performance.now();
+    let lastFlap=0, lx=P0.x, ly=P0.y;
+
+    (function step(now){
+      const raw=clamp((now-t0)/DUR,0,1);
+      const t=easeOutCubic(raw);
+      const mt=1-t;
+      let x = mt*mt*P0.x + 2*mt*t*C.x + t*t*P1.x;
+      let y = mt*mt*P0.y + 2*mt*t*C.y + t*t*P1.y;
+      // wing-beat bob, fading out as she settles
+      y += Math.sin(raw*Math.PI*5.2)*20*(1-easeInOutCubic(raw));
+      bird.scale = lerp(.72,1,easeOutCubic(clamp(raw*1.15,0,1)));
+      bird.rot   = clamp((x-lx)*.9,-9,9)*(1-t*t) + Math.sin(raw*Math.PI*5.2)*3*(1-raw);
+      bird.groundGap = Math.max(0, LAYOUT.bird.footY - y);
+      lx=x; ly=y;
+      bird.at(x,y);
+
+      if(now-lastFlap>150 && raw<.92){ lastFlap=now; SFX.flap(); }
+      if(raw<1) requestAnimationFrame(step);
+      else {
+        bird.stop();
+        bird.setFrame(SHEETS.fly.restFrame);   // touch down wings-tucked, not mid-flap
+        land(res);
+      }
+    })(t0);
+  });
+}
+
+function land(res){
+  bird.rot=0; bird.groundGap=0;
+  bird.stop();
+  bird.at(LAYOUT.bird.footX, LAYOUT.bird.footY);
+  // dissolve out of the flap and into the neutral standing pose
+  bird.swap('talk',{loop:false, frame:0, fade:220});
+  SFX.land();
+  for(let i=0;i<16;i++) spawnDust(LAYOUT.bird.footX+rand(-70,70), LAYOUT.bird.footY-rand(0,14));
+  // squash & settle
+  const t0=performance.now(), D=430*PACE;
+  (function s(now){
+    const t=clamp((now-t0)/D,0,1);
+    // 1 → squash → overshoot → 1
+    const k = t<.28 ? lerp(1,.80,easeOutCubic(t/.28))
+            : t<.62 ? lerp(.80,1.09,easeOutCubic((t-.28)/.34))
+            :         lerp(1.09,1,easeOutCubic((t-.62)/.38));
+    bird.sqY=k; bird.sqX=1+(1-k)*.75;
+    bird.syncEl();
+    if(t<1) requestAnimationFrame(s);
+    else { bird.sqX=bird.sqY=1; bird.syncEl(); res(); }
+  })(t0);
+}
+
+function happyJump(){
+  return new Promise(res=>{
+    const s   = SHEETS.jump;
+    const DUR = s.frames*1000/s.fps;
+
+    bird.swap('jump',{loop:false, frame:0, fade:150, onDone:()=>{
+      bird.groundGap=0;
+      bird.at(LAYOUT.bird.footX, LAYOUT.bird.footY);
+      bird.swap('talk',{loop:false, frame:0, fade:190});
+      res();
+    }});
+    bird.play();
+    SFX.happy();
+
+    // this sheet has no arc drawn into it, so lift her from code
+    const j0=performance.now();
+    (function arc(now){
+      const p    = clamp((now-j0)/DUR,0,1);
+      const lift = liftAt(s.lift,p)*JUMP_H;
+      bird.groundGap = lift;
+      bird.at(LAYOUT.bird.footX, LAYOUT.bird.footY-lift);
+      if(p<1) requestAnimationFrame(arc);
+    })(j0);
+
+    const apex = DUR*0.57;
+    // sparkles at the top of the jump
+    setTimeout(()=>{
+      const hx=LAYOUT.bird.footX, hy=LAYOUT.bird.footY-JUMP_H-BIRD_H*0.95;
+      SFX.sparkle();
+      burst(hx,hy,40,1.05);
+      ringWave(hx,hy,'#FFF0B0');
+      for(let i=0;i<14;i++) setTimeout(()=>spawnStar(hx+rand(-140,140), hy+rand(-60,90),{g:-.02}), i*38);
+      flash.animate([{opacity:0},{opacity:.34},{opacity:0}],{duration:340,easing:'ease-out'});
+    }, apex);
+    // little landing puff at the end
+    setTimeout(()=>{
+      SFX.pop();
+      for(let i=0;i<10;i++) spawnDust(LAYOUT.bird.footX+rand(-55,55), LAYOUT.bird.footY-rand(0,10));
+    }, DUR*0.86);
+  });
+}
+
+async function talkTo(){
+  const cx = LAYOUT.bird.footX, headY = LAYOUT.bird.footY - BIRD_H;
+  for(const line of TEXT) await speech(line, cx, headY, 1240, 'talk');
+  SFX.chirp(.2);
+}
+
+/* park the bubble above whatever the bird is standing on */
+/* Size the box to the words rather than to a fixed width, so a short line
+   doesn't sit in a big empty panel. `wMax` is now only a ceiling: if the line
+   needs to wrap we divide it into even lines instead of running to the full
+   width, which keeps the text block roughly square and the padding even.
+   The box is measured with the WHOLE line and then locked, so it doesn't
+   grow and reflow while the words are appearing. */
+/* aimX / aimY is the point the tail must touch — her head when the bubble is
+   above her, her body when it is below. The box is then placed so the tail
+   lands there, instead of each line guessing its own vertical offset. */
+const TAIL_H = 36, TAIL_BITE = 6;   // tail length, and how far it overlaps her
+function bubbleAt(aimX, aimY, wMax=900, boxCx=null, tailUp=false, text=''){
+  wMax = Math.min(wMax, 1840);
+
+  bubble.style.width='auto'; bubble.style.height='auto'; bubble.style.maxWidth='none';
+  bubbleText.textContent = text;
+  bubbleText.style.whiteSpace='nowrap';
+  const oneLine = bubble.offsetWidth;            // what it wants on a single line
+  bubbleText.style.whiteSpace='';
+
+  let w = oneLine;
+  if(oneLine > wMax){
+    const lines = Math.ceil(oneLine/wMax);       // split it into even lines
+    w = Math.min(wMax, Math.ceil(oneLine/lines*1.08));
+  }
+  w = clamp(w, 250, wMax);
+  bubble.style.width = w+'px';
+  bubble.style.height = bubble.offsetHeight+'px';
+  bubbleText.textContent='';
+
+  const h = bubble.offsetHeight;
+  // put the box where the tail tip reaches the aim point
+  let bottomY = tailUp ? aimY + h + TAIL_H - TAIL_BITE
+                       : aimY - TAIL_H + TAIL_BITE;
+  bottomY = clamp(bottomY, h+16, 1070);
+
+  const cx   = boxCx===null ? aimX : boxCx;
+  const left = clamp(cx - w/2, 40, 1920-w-40);
+  bubble.style.left  = left+'px';
+  bubble.style.bottom= (1080-bottomY)+'px';
+  bubble.classList.toggle('tailUp', !!tailUp);
+  bubble.style.transformOrigin = tailUp ? '50% -20%' : '50% 120%';
+  const tailPct = clamp((aimX-left)/w*100, 8, 92);
+  bubble.querySelectorAll('.tail,.tailIn').forEach(t=>t.style.left=tailPct+'%');
+}
+
+/* reveal `text` into an element in step with the voice actually saying it */
+async function speakInto(el, text){
+  duckMusic();                     // drop the music under her voice
+  el.textContent='';
+  let shown=0, viaVoice=false;
+  const reveal = n => {
+    n=Math.min(n, text.length);
+    if(n<=shown) return;
+    shown=n; el.textContent=text.slice(0,n); SFX.blip();
+  };
+  const per = clamp(3400/text.length, 42, 92)*PACE;
+  let i=0;
+  const iv=setInterval(()=>{
+    if(viaVoice) return;
+    reveal(++i);
+    if(i>=text.length) clearInterval(iv);
+  }, per);
+  await speak(text, (ci,cl)=>{
+    viaVoice=true;
+    let end = ci + (cl||0);
+    if(!cl){ const m=/\S+/.exec(text.slice(ci)); end = ci + (m ? m[0].length : 1); }
+    reveal(end);
+  });
+  clearInterval(iv);
+  el.textContent=text;
+  unduckMusic();                   // and bring it back up
+}
+
+/* speak a line while `anim` gives whoever is talking a bit of life */
+function sayLine(text, anim='talk'){
+  return new Promise(async res=>{
+    let bob=null;
+    if(anim==='talk'){ bird.swap('talk',{loop:true, frame:0, fade:0}); bird.play(); }
+    else if(anim==='sit'){
+      const t0=performance.now();
+      (function b(now){
+        const k=1+Math.sin((now-t0)/150)*0.022;
+        sitBird.style.transform=`scale(${(2-k).toFixed(3)}, ${k.toFixed(3)})`;
+        bob=requestAnimationFrame(b);
+      })(t0);
+    }
+    const chirps=setInterval(()=>SFX.chirp(.07), 720);
+    await speakInto(bubbleText, text);
+    clearInterval(chirps);
+    if(anim==='talk'){ bird.stop(); bird.setFrame(0); }
+    if(bob){ cancelAnimationFrame(bob); sitBird.style.transform=''; }
+    res();
+  });
+}
+
+/* gentle breathing when she's just standing there */
+let idleRaf=null, idleTimer=null;
+function stopIdle(){
+  if(idleRaf) cancelAnimationFrame(idleRaf);
+  if(idleTimer) clearInterval(idleTimer);
+  idleRaf=idleTimer=null;
+  bird.sqX=bird.sqY=1; bird.syncEl();
+}
+function idle(){
+  bird.swap('talk',{loop:false, frame:0, fade:0});
+  const t0=performance.now();
+  (function b(now){
+    const t=(now-t0)/1000;
+    bird.sqY = 1 + Math.sin(t*2.0)*.018;
+    bird.sqX = 1 - Math.sin(t*2.0)*.014;
+    bird.syncEl();
+    idleRaf=requestAnimationFrame(b);
+  })(t0);
+  // occasional twinkle around her
+  idleTimer=setInterval(()=>{
+    if(Math.random()<.55)
+      spawnStar(LAYOUT.bird.footX+rand(-200,200), LAYOUT.bird.footY-rand(60,BIRD_H+40),{g:-.01});
+  }, 900);
+}
+
+boot().catch(err=>{ console.warn('boot:', err && err.message); revealStart(); });
+})();
+</script>
