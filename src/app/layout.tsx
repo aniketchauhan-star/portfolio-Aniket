@@ -22,10 +22,17 @@ const geistMono = Geist_Mono({
   display: "swap",
 });
 
+/**
+ * The origin the site is served from, or "" when it has not been set.
+ *
+ * Everything derived from it is omitted while it is empty: `new URL("")`
+ * throws, and a canonical tag pointing at the wrong domain is worse for SEO
+ * than no canonical tag at all.
+ */
 const siteUrl = profile.seo.siteUrl;
 
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
+  ...(siteUrl ? { metadataBase: new URL(siteUrl) } : {}),
   title: {
     default: profile.seo.title,
     template: `%s — ${profile.name}`,
@@ -34,10 +41,10 @@ export const metadata: Metadata = {
   keywords: [...profile.seo.keywords],
   authors: [{ name: profile.name, url: profile.linkedin }],
   creator: profile.name,
-  alternates: { canonical: "/" },
+  ...(siteUrl ? { alternates: { canonical: "/" } } : {}),
   openGraph: {
     type: "website",
-    url: siteUrl,
+    ...(siteUrl ? { url: siteUrl } : {}),
     siteName: profile.seo.title,
     title: profile.seo.title,
     description: profile.seo.description,
@@ -84,7 +91,7 @@ function personJsonLd() {
     "@context": "https://schema.org",
     "@type": "Person",
     name: profile.name,
-    url: siteUrl,
+    ...(siteUrl ? { url: siteUrl } : {}),
     description: profile.intro,
     ...(profile.headline ? { jobTitle: profile.headline } : {}),
     ...(profile.locality || profile.country

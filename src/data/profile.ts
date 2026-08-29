@@ -447,9 +447,19 @@ export const profile = {
     title: "Aniket Chauhan — UI/UX Designer",
     description:
       "Aniket Chauhan is a UI/UX designer at ConveGenius.AI in Delhi, India, designing engaging digital experiences across interface, graphic and campaign work.",
-    /** Absolute site URL, used for canonical + OpenGraph. Change this if you
-     *  deploy the portfolio somewhere other than the Netlify domain. */
-    siteUrl: "https://aniketchauhan.netlify.app",
+    /**
+     * Absolute site URL — the origin the site is actually served from.
+     *
+     * Deliberately EMPTY. It used to point at a Netlify domain that no longer
+     * serves this portfolio, which meant every canonical tag, OpenGraph URL,
+     * `robots.txt` and `sitemap.xml` was sending search engines and link
+     * previews to an unrelated page — worse than saying nothing at all.
+     *
+     * While it is empty the site simply omits all of those rather than
+     * asserting an address it does not have. **Set it to the real origin
+     * before deploying** (no trailing slash), e.g. "https://aniket.design".
+     */
+    siteUrl: "",
     keywords: [
       "Aniket Chauhan",
       "UI/UX designer",
