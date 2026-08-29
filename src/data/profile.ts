@@ -450,7 +450,7 @@ export const profile = {
     /**
      * Absolute site URL — the origin the site is actually served from.
      *
-     * Deliberately EMPTY. It used to point at a Netlify domain that no longer
+     * Deliberately EMPTY. It used to point at an old host that no longer
      * serves this portfolio, which meant every canonical tag, OpenGraph URL,
      * `robots.txt` and `sitemap.xml` was sending search engines and link
      * previews to an unrelated page — worse than saying nothing at all.
