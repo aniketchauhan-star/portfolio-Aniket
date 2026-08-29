@@ -264,6 +264,16 @@ Two details in `ProjectCard` are worth keeping if you restyle it:
   card, which is right for the overlay and about three times too large for a
   tile; the grid passes its own value so a 170px thumbnail does not download a
   hero-sized image.
+- **Three columns from `sm`, not `lg`.** A phone on its side is 844px wide and
+  was getting the two-column phone grid, which made this the tallest section on
+  the shortest viewport there is — 4.1 screens, now 2.9. Small tablets gain the
+  same way.
+- **The tile's category/year runs one step below the global `.label` size, and
+  only below `sm`.** Labels were raised to 11px for phone legibility, but a
+  tile's text column is ~102px wide at 320px, where 11px needs three cramped
+  lines for "INTERACTIVE STORYBOOK / 2026" and 10px needs two. It is also a
+  single flowing text run rather than separate flex children — as separate
+  children the year could only ever wrap onto a line of its own.
 
 The scene's `projectProgress` now comes from one ScrollTrigger across the whole
 grid rather than a trigger per card — two tiles share a row, so neither "owns"

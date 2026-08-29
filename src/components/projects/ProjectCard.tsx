@@ -123,10 +123,22 @@ export function ProjectCard({ project, index, onOpen }: ProjectCardProps) {
         </div>
 
         {/* Caption ------------------------------------------------------ */}
-        <div className="flex flex-1 flex-col p-4 sm:p-5">
+        <div className="flex flex-1 flex-col p-3.5 sm:p-5">
+          {/* One flowing text run rather than flex items. As separate children
+              the year could only wrap onto a line of its own, so a 320px tile
+              spent three lines on "GAME / INTERACTIVE / 2026"; as text it
+              reflows into two. */}
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="label label-bright">{project.category}</span>
-            <span className="label">/ {project.year}</span>
+            {/* One step below the global `.label` size, and only here. The
+                labels were raised to 11px for phone legibility, but a tile's
+                text column is ~102px wide at 320px — at 11px "INTERACTIVE
+                STORYBOOK / 2026" needs three cramped lines, at 10px it needs
+                two. Two lines of slightly smaller type reads better than three
+                of larger, and the tile's real heading is the title below. */}
+            <span className="label label-bright text-[0.625rem] tracking-[0.1em] sm:text-[0.6875rem] sm:tracking-[0.18em]">
+              {project.category}{" "}
+              <span className="text-[var(--color-faint)]">/ {project.year}</span>
+            </span>
             {project.placeholder && <PlaceholderChip />}
           </div>
 

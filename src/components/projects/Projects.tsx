@@ -94,7 +94,11 @@ export function Projects() {
           <Stagger
             disabled={reduced}
             stagger={0.07}
-            className="mt-16 grid grid-cols-2 gap-3 sm:gap-5 lg:mt-24 lg:grid-cols-3 lg:gap-6"
+            // Three columns from `sm` rather than `lg`: a phone on its side is
+            // 844px wide and was still getting the two-column phone grid, which
+            // made this section 4.1 screens tall on the shortest viewport there
+            // is. Small tablets gain the same way.
+            className="mt-16 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:mt-24 lg:gap-6"
           >
             {projects.map((project, i) => (
               <ProjectCard
